@@ -1,0 +1,1012 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ICU Handover">
+<meta name="description" content="ICCA handover report as patient cards for phone, tablet or PC. Runs in your browser; patient details are never uploaded.">
+</head>
+<body>
+<title>ICU Handover</title>
+<meta name="theme-color" content="#1f5b8f">
+<style>
+/* Layout: sticky bar (data age + actions), bed chips to jump between patients, then one colour-coded card per patient in bed order.
+   Each card: header (who, consultant, escalation) → alert chips → key issues & jobs → support now / diagnosis / history → timeline & micro (latest first) → My notes. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --surface-2:#eef2f6; --line:#d5dde6; --ink:#16202b; --muted:#5b6977;
+  --accent:#1f5b8f; --accent-ink:#ffffff; --accent-soft:#e1ecf6;
+  --ok:#1e7a4d; --ok-soft:#e2f3ea; --warn:#9a5b00; --warn-soft:#fdf0db; --crit:#b3261e; --crit-soft:#fbe4e2;
+  --p0:#2f6db5; --p1:#138a88; --p2:#7a4fb5; --p3:#b0457f; --p4:#6b7d1f; --p5:#b5652a;
+  --tint:11%; --tint-body:4%;
+  --font-ui:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --font-data:Consolas,"Cascadia Mono","SFMono-Regular",Menlo,monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0f151c; --surface:#17202a; --surface-2:#1f2a36; --line:#2f3d4c; --ink:#e4ebf2; --muted:#93a3b4;
+  --accent:#6aa5dc; --accent-ink:#0f151c; --accent-soft:#1b3047;
+  --ok:#5cc28e; --ok-soft:#163626; --warn:#e9a94a; --warn-soft:#3a2a10; --crit:#f2867c; --crit-soft:#43201d;
+  --p0:#6d9fe0; --p1:#3fbcb9; --p2:#a689dc; --p3:#de7fb2; --p4:#a6b956; --p5:#e09766;
+  --tint:16%; --tint-body:6%; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0f151c; --surface:#17202a; --surface-2:#1f2a36; --line:#2f3d4c; --ink:#e4ebf2; --muted:#93a3b4;
+  --accent:#6aa5dc; --accent-ink:#0f151c; --accent-soft:#1b3047;
+  --ok:#5cc28e; --ok-soft:#163626; --warn:#e9a94a; --warn-soft:#3a2a10; --crit:#f2867c; --crit-soft:#43201d;
+  --p0:#6d9fe0; --p1:#3fbcb9; --p2:#a689dc; --p3:#de7fb2; --p4:#a6b956; --p5:#e09766;
+  --tint:16%; --tint-body:6%; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--font-ui);margin:0}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line);padding:8px 16px}
+.bar-inner{max-width:1180px;margin:0 auto;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.brand{font-weight:700;display:flex;align-items:center;gap:8px}
+.ver{font-size:11px;font-weight:500;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 7px}
+.age{font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--ok-soft);color:var(--ok);font-variant-numeric:tabular-nums}
+.age.warn{background:var(--warn-soft);color:var(--warn)}
+.age.crit{background:var(--crit-soft);color:var(--crit)}
+.actions{margin-left:auto;display:flex;flex-wrap:wrap;gap:6px}
+.btn{border:1px solid var(--line);background:var(--surface);padding:6px 11px;border-radius:var(--r);cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+.btn.small{padding:2px 8px;font-size:12px}
+
+main{max-width:1180px;margin:0 auto;padding-block:12px 60px;padding-inline:16px}
+.demo-flag{background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-weight:600;font-size:13px}
+.summary{color:var(--muted);font-size:13px;margin:0 0 8px}
+.summary b{color:var(--ink)}
+
+/* start page */
+.landing{display:grid;gap:16px;justify-items:center;text-align:center;padding-top:12px}
+.landing h1{font-size:26px;margin:0;text-wrap:balance}
+.lead{margin:0;font-size:15px;color:var(--muted);max-width:64ch}
+.drop{width:100%;max-width:760px;border:2px dashed var(--line);border-radius:10px;background:var(--surface);padding:32px 20px;display:grid;gap:12px;justify-items:center}
+.drop.hot{border-color:var(--accent);background:var(--accent-soft)}
+.drop h2{font-size:17px;margin:0}
+.drop p{margin:0;color:var(--muted);max-width:56ch}
+.linkbtn{border:0;background:none;color:var(--accent);text-decoration:underline;cursor:pointer;font-size:13px;padding:2px}
+.diag{max-width:900px;margin:0 auto 16px;background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;display:grid;gap:8px}
+.diag h2{margin:0;font-size:16px}
+.diag p{margin:0;color:var(--muted);font-size:13px}
+.diag textarea{width:100%;font:12px/1.35 var(--font-data);border:1px solid var(--line);border-radius:var(--r);background:var(--bg);padding:8px;resize:vertical}
+.getcopy{width:100%;max-width:760px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;text-align:left;background:var(--accent-soft);border:1px solid var(--accent);border-radius:10px;padding:12px 14px}
+.getcopy > div{flex:1 1 300px;min-width:0}
+a.btn{text-decoration:none;display:inline-block}
+.updbar{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;padding:8px 16px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:var(--accent);color:var(--accent-ink);font-size:13.5px}
+.updbar .btn{background:var(--accent-ink);color:var(--accent);border-color:var(--accent-ink)}
+.folder{width:100%;max-width:760px;background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;display:grid;gap:8px;text-align:left}
+.folder-head{font-size:15px}
+.flist{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.flist button{width:100%;display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line);background:var(--bg);border-radius:var(--r);padding:5px 9px;cursor:pointer;text-align:left;font-size:13px}
+.flist button:hover{border-color:var(--accent)}
+.flist .when{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.newer{position:sticky;bottom:calc(10px + env(safe-area-inset-bottom,0px));margin:10px auto 0;max-width:560px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:8px 12px;font-weight:600;z-index:6}
+.newer .btn{background:var(--accent-ink);color:var(--accent);border-color:var(--accent-ink)}
+.howto{margin:0;padding:10px 14px 10px 32px;text-align:left;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;max-width:62ch;display:grid;gap:4px}
+.row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.small-print{font-size:12px;color:var(--muted);max-width:64ch}
+
+/* bed chips */
+.pin{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--barh,52px));z-index:4;background:var(--bg)}
+.mini-age{display:none;font-size:11.5px;font-weight:600;color:var(--ok);padding-top:4px}
+.mini-age.warn{color:var(--warn)} .mini-age.crit{color:var(--crit)}
+@media (max-width:700px){ .mini-age{display:block} }
+.beds{align-items:flex-start;display:flex;gap:6px;overflow-x:auto;padding:6px 2px 8px;background:var(--bg);scrollbar-width:thin}
+.bed{--pc:var(--p0);flex:none;display:grid;justify-items:center;min-width:54px;padding:3px 6px;border:2px solid color-mix(in srgb,var(--pc) 40%,var(--line));border-radius:10px;background:color-mix(in srgb,var(--pc) 8%,var(--surface));font:700 14px var(--font-data);color:var(--pc);cursor:pointer;position:relative}
+.bed .d{font-style:normal;font-weight:500;font-size:10px;margin-left:3px;opacity:.85}
+.day{color:var(--ink);font-weight:600}
+.bed span{font:600 11.5px var(--font-ui);color:var(--muted);letter-spacing:.04em;white-space:nowrap}
+.bed{min-width:46px}
+.bed.empty{border:2px dashed var(--line);background:transparent;color:var(--muted);cursor:default;opacity:.75}
+.bed.empty span{font-weight:500;font-size:10px;letter-spacing:0}
+.stack{flex:none;display:grid;gap:2px;justify-items:center}
+.stack > .grp.open .cap{display:none}
+.grp{flex:none;display:grid;gap:2px;justify-items:center}
+.grp-beds{display:flex;gap:4px}
+.cap{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);min-height:13px;line-height:13px;white-space:nowrap}
+.grp.pod .grp-beds{padding:2px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.grp.pod .cap::before{content:"◖◗ ";letter-spacing:-.1em}
+.grp.side .grp-beds{padding:2px;border:1.5px solid var(--muted);border-radius:12px;box-shadow:inset 0 0 0 2px var(--surface)}
+.grp.open .grp-beds,.grp.off .grp-beds{padding:3.5px 0}
+.grp.off{margin-right:10px;padding-right:10px;border-right:2px solid var(--line)}
+.unitname{font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.unitname.unknown{background:var(--warn-soft);color:var(--warn)}
+.unit{display:inline-flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.unit button{border:0;border-left:1px solid var(--line);background:var(--surface);padding:5px 10px;cursor:pointer;font-size:13px}
+.unit button:first-child{border-left:0}
+.unit button.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.bed.dnr::after{content:"";position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--crit)}
+.bed.note::before{content:"✎";position:absolute;top:0;left:4px;font-size:10px;color:var(--muted)}
+
+/* patient card */
+.pt{--pc:var(--p0);background:color-mix(in srgb,var(--pc) var(--tint-body),var(--surface));border:1px solid color-mix(in srgb,var(--pc) 45%,var(--line));border-left:7px solid var(--pc);border-radius:10px;margin-bottom:18px;overflow:hidden;scroll-margin-top:calc(var(--barh,52px) + var(--bedsh,60px) + 6px)}
+.c1{--pc:var(--p1)} .c2{--pc:var(--p2)} .c3{--pc:var(--p3)} .c4{--pc:var(--p4)} .c5{--pc:var(--p5)}
+.bed.c1{--pc:var(--p1)} .bed.c2{--pc:var(--p2)} .bed.c3{--pc:var(--p3)} .bed.c4{--pc:var(--p4)} .bed.c5{--pc:var(--p5)}
+.head{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:flex-start;padding:9px 12px;background:color-mix(in srgb,var(--pc) var(--tint),var(--surface));border-bottom:2px solid var(--pc)}
+.num{font:700 15px var(--font-data);color:var(--surface);background:var(--pc);border-radius:5px;padding:2px 8px;white-space:nowrap}
+.who{flex:1 1 260px;min-width:0;display:grid;gap:1px}
+.name{font-weight:700;font-size:16px;color:color-mix(in srgb,var(--pc) 70%,var(--ink))}
+.sub{color:var(--muted);font-size:12.5px}
+.ids{font:12px var(--font-data);color:var(--muted);font-variant-numeric:tabular-nums}
+.esc{display:flex;flex-direction:column;gap:4px;align-items:flex-end;max-width:100%}
+.pill{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.pill.crit{background:var(--crit-soft);color:var(--crit);border-color:transparent}
+.pill.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.pill.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+
+.alerts{display:flex;flex-wrap:wrap;gap:5px;padding:8px 12px 0}
+.al{font-size:12.5px;font-weight:600;padding:2px 9px;border-radius:6px;line-height:1.35}
+.al.crit{background:var(--crit-soft);color:var(--crit)}
+.al.warn{background:var(--warn-soft);color:var(--warn)}
+.al.info{background:var(--accent-soft);color:var(--accent)}
+.al.ok{background:var(--ok-soft);color:var(--ok)}
+
+.body{display:grid;grid-template-columns:minmax(0,1fr);gap:0 22px;padding:4px 12px 12px}
+@media (min-width:860px){ .body{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)} }
+.col{display:grid;gap:0;align-content:start;min-width:0}
+.sec{padding:9px 0;border-top:1px solid color-mix(in srgb,var(--pc) 22%,var(--line));min-width:0}
+.col > .sec:first-child{border-top:0}
+.sec h3{margin:0 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--pc)}
+.txt{white-space:pre-line;overflow-wrap:anywhere}
+.none{color:var(--muted);font-style:italic}
+.issues{background:var(--surface);border:1px solid color-mix(in srgb,var(--pc) 35%,var(--line));border-radius:8px;padding:8px 10px;display:grid;gap:8px;margin-top:6px}
+.issues h3{margin:0 0 2px}
+.jobs{font-weight:600}
+.kv{display:grid;grid-template-columns:7.5em minmax(0,1fr);gap:3px 10px}
+.kv dt{font-size:12px;font-weight:600;color:var(--muted)}
+.kv dd{margin:0;overflow-wrap:anywhere}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 16px}
+@media (max-width:520px){ .two{grid-template-columns:minmax(0,1fr)} }
+.tl{list-style:none;margin:0;padding:0;display:grid;gap:1px;font-size:12.5px;line-height:1.3}
+.tl li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px;overflow-wrap:anywhere}
+.tl .d{font:600 11px/1.3 var(--font-data);color:var(--muted);padding-top:1px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tl li.newest .t{font-weight:600}
+details.more summary{cursor:pointer;color:var(--accent);font-size:12.5px;margin-top:4px;list-style:none}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::before{content:"▸ "}
+details.more[open] summary::before{content:"▾ "}
+details.more .tl{margin-top:4px;opacity:.85}
+
+.notes textarea{width:100%;min-height:64px;resize:vertical;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:6px 8px;line-height:1.4}
+.notes textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.notes .state{font-size:11.5px;color:var(--muted);margin-top:3px}
+
+body.compact .full-only{display:none}
+
+.contacts{margin-top:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.contacts h2{font-size:13px;margin:0 0 6px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.ct{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 14px}
+.ct div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dotted var(--line);padding:2px 0}
+.ct b{font:600 13px var(--font-data);font-variant-numeric:tabular-nums}
+.ct .mail{grid-column:1 / -1;overflow-wrap:anywhere}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:10}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){.toast{transition:none} html{scroll-behavior:auto}}
+@media (max-width:640px){ .actions{margin-left:0} .esc{align-items:flex-start} }
+/* phones: the top bar scrolls away with the page; only the bed strip stays pinned */
+@media (max-width:700px){
+  .bar{position:static;padding:6px 12px}
+  .bar-inner{gap:6px 10px}
+  .btn{padding:5px 9px}
+  .beds{padding-top:4px;padding-bottom:4px}
+}
+</style>
+
+<div class="bar" id="bar">
+  <div class="bar-inner">
+    <div class="brand">
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="1.5" width="16" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 5.5v9M5.5 10h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      ICU Handover <span class="ver">v5 Oct 2026z1</span>
+    </div>
+    <span class="age" id="age" hidden></span>
+    <div class="actions">
+      <button class="btn" id="b-home" type="button" hidden>⌂ Start page</button>
+      <button class="btn" id="b-latest" type="button" hidden title="Load the newest export from the handover folder">⟳ Latest</button>
+      <span class="unitname" id="unitname" hidden></span>
+      <button class="btn" id="b-compact" type="button" hidden title="Show only key issues, jobs, support and your notes">Compact</button>
+      <button class="btn primary" id="b-open" type="button">Open export…</button>
+    </div>
+  </div>
+</div>
+
+<main>
+  <input type="file" id="file" accept=".xml,text/xml,application/xml" hidden>
+
+  <section class="landing" id="start">
+    <h1>ICU Handover</h1>
+    <p class="lead">Reads the ICCA handover report (the XML export) and shows each patient as a card you can read on a phone, tablet or laptop. You can add your own private notes to each card, like scribbling on the paper sheet.</p>
+    <div class="getcopy" id="getcopy" hidden>
+      <div><b>Use it on a trust PC or in Citrix</b><br><span class="sub">Download a copy, save it to the M: drive and open it in Edge. The copy works without the internet and can remember the handover folder.</span></div>
+      <button class="btn primary" id="b-getcopy" type="button">Download ICU Handover.html</button>
+      <a class="btn primary" id="a-getcopy" href="index.html" download="ICU Handover.html" hidden>Download for offline use</a>
+    </div>
+    <div class="folder" id="folder" hidden>
+      <div class="folder-head"><b>Handover folder</b> <span id="folder-name" class="sub"></span></div>
+      <div class="row" style="justify-content:flex-start">
+        <button class="btn primary" id="f-latest" type="button" hidden>Open latest export</button>
+        <button class="btn" id="f-choose" type="button">Choose handover folder…</button>
+      </div>
+      <ul class="flist" id="flist"></ul>
+      <p class="sub" id="folder-help">Pick the folder the ICCA exports are saved in (for example the WRH Medical Handover XMLs folder on the M: drive). The page remembers it on this computer and opens the newest export for you next time.</p>
+    </div>
+    <div class="drop" id="drop">
+      <h2>Drop the handover export here</h2>
+      <ol class="howto">
+        <li>In ICCA, export the Handover report as <b>XML file with report data</b>.</li>
+        <li>Drop the file here, or click <b>Open export</b> and choose it.</li>
+        <li>Or copy it and paste it here: copy the file in File Explorer (or open it in Notepad and press <b>Ctrl+A</b>, <b>Ctrl+C</b>), then press <b>Ctrl+V</b> on this page. On a phone, copy it and tap <b>Paste export</b>.</li>
+      </ol>
+      <div class="row">
+        <button class="btn primary" id="b-open2" type="button">Open export…</button>
+        <button class="btn" id="b-paste" type="button"><svg width="15" height="15" viewBox="0 0 20 20" aria-hidden="true" style="vertical-align:-2px"><rect x="5" y="3.5" width="10" height="14" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 3.5h4v2.2H8z" fill="currentColor"/></svg> Paste export</button>
+        <button class="btn" id="b-demo" type="button">Worcester example</button>
+        <button class="btn" id="b-demo-alex" type="button">Alexandra example</button>
+      </div>
+      <button class="linkbtn" id="b-check" type="button">Export not reading properly? Check its layout</button>
+    </div>
+    <p class="small-print">The export is read in this browser window and is not uploaded or stored. Only your own notes are kept on this device, filed under a scrambled code rather than the patient's name or number. Each note is deleted when its patient leaves the export, and in any case after 3 days. Notes are personal reminders, not clinical documentation: record decisions in ICCA.</p>
+  </section>
+
+  <section class="diag" id="diag" hidden>
+    <h2>Layout check</h2>
+    <p>This shows how the file is laid out, with every name, number and word of clinical text replaced by x and 9, so it is safe to share. Only the headings (RFA:, Cons:, PMH: and so on) are kept. Copy it and send it to whoever is fixing the reader.</p>
+    <textarea id="diag-out" readonly rows="18" aria-label="Layout of the file"></textarea>
+    <div class="row" style="justify-content:flex-start"><button class="btn primary" id="diag-copy" type="button">Copy</button><button class="btn" id="diag-close" type="button">Close</button></div>
+  </section>
+
+  <div id="view" hidden>
+    <div class="demo-flag" id="demoflag" hidden>Example data: these patients are made up.</div>
+    <p class="summary" id="summary"></p>
+    <div class="pin" id="pin"><div class="mini-age" id="miniage"></div><nav class="beds" id="beds" aria-label="Beds"></nav></div>
+    <section id="cards"></section>
+    <section class="contacts" id="contacts" hidden></section>
+  </div>
+</main>
+<div class="newer" id="newer" hidden role="status"><span id="newer-text"></span><span class="row"><button class="btn small" id="newer-load" type="button">Load it</button><button class="btn small" id="newer-x" type="button">Later</button></span></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+/*PARSE-START*/
+// ---------- reading the ICCA (SSRS) XML export ----------
+// Each patient is a <Details> element whose attributes hold the report's text boxes.
+// The text boxes are recognised by what they contain rather than their names (Textbox14 etc.),
+// so renaming them in the report designer won't break anything.
+const norm = s => String(s ?? '').replace(/\r\n?/g, '\n').replace(/\t/g, ' ');
+const trimLines = s => norm(s).split('\n').map(l => l.replace(/\s+$/, '')).join('\n').replace(/^\n+|\n+$/g, '');
+
+function classifyBoxes(attrs){
+  const box = {who:'', story:'', history:'', issues:'', other:[]};
+  for (const [name, val] of Object.entries(attrs)){
+    if (name === 'bedLabel') continue;
+    const v = norm(val);
+    if (/(^|\n)\s*Cons:/i.test(v) && !box.who) box.who = v;
+    else if (/(^|\n)\s*(RFA|Working Dx|Timeline):/i.test(v) && !box.story) box.story = v;
+    else if (/(^|\n)\s*(PMH|PSH|Allergies):/i.test(v) && !box.history) box.history = v;
+    else if (/(^|\n)\s*(Key Issues|Jobs|Trial):/i.test(v) && !box.issues) box.issues = v;
+    else if (v.trim()) box.other.push(v.trim());
+  }
+  return box;
+}
+// a line that reads like a patient's name: letters, spaces, commas, hyphens, apostrophes; no digits or labels
+const NAME_RE = /^(?:(?:Mr|Mrs|Ms|Miss|Mx|Dr)\.?\s+)?[A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F'’. -]*(?:,\s*[A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F'’. -]*)?$/;
+const looksLikeName = l => l.length <= 60 && NAME_RE.test(l) && !/^(full|not for|for |nhs|adm|cons|male|female|unknown)\b/i.test(l);
+// split "Label: text" sections that start at the beginning of a line
+function sections(text, labels){
+  const out = {}; let cur = null; const re = new RegExp('^\\s*(' + labels.map(l => l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + '):\\s?(.*)$', 'i');
+  for (const line of norm(text).split('\n')){
+    const m = line.match(re);
+    if (m){ cur = labels.find(l => l.toLowerCase() === m[1].toLowerCase()); out[cur] = (out[cur] ? out[cur] + '\n' : '') + m[2]; }
+    else if (cur) out[cur] += '\n' + line;
+  }
+  for (const k in out) out[k] = trimLines(out[k]);
+  return out;
+}
+// each line is recognised by what it looks like, not its position, so a blank or extra line can't shift the name
+function parseWho(text, other = []){
+  const lines = norm(text).split('\n').map(l => l.trim()).filter(Boolean);
+  const o = {name:'', dobLine:'', hosp:'', nhs:'', adm:'', cons:'', escalation:[]};
+  let afterCons = false, admNext = false;
+  for (const l of lines){
+    let m;
+    if (afterCons){ if (!o.escalation.some(e => e.toLowerCase() === l.toLowerCase())) o.escalation.push(l); continue; }
+    // the ICCA report prints "Adm:" on its own and the admission date/time on the next line, e.g. "05/10/2026 08:12:00 (D4.2)"
+    if (admNext){ admNext = false; if (/\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}|\d{4}-\d{2}-\d{2}/.test(l)){ o.adm = l; continue; } }
+    if ((m = l.match(/^NHS(?:\s*No\.?)?:\s*(.*)/i))) o.nhs = m[1];
+    else if ((m = l.match(/^(?:ICU\s*|ITU\s*|Unit\s*)?Adm(?:itted|ission)?(?:\s*date)?\s*[:\-]\s*(.*)/i))){ o.adm = m[1].trim(); if (!o.adm) admNext = true; }
+    else if ((m = l.match(/^Cons:\s*(.*)/i))){ o.cons = m[1]; afterCons = true; }
+    else if (/^#?\s*[A-Z]{0,3}\d{4,}[A-Z]?$/i.test(l) || /^Hosp(ital)?\s*(No\.?)?:?\s*\S/i.test(l) || /HOSPITAL NUMBER/i.test(l)){ if (!o.hosp) o.hosp = l; }
+    else if (/\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}|\(\s*\d+\s*y|\b\d+\s*(y|yrs|years)\b|\bDOB\b|\bAGE\b|\bSEX\b/i.test(l)){ if (!o.dobLine) o.dobLine = l; } // a repeated DOB line is ignored
+    else if (!o.name) o.name = l;
+  }
+  if (!o.name) o.name = other.find(looksLikeName) || ''; // name kept in its own text box
+  return o;
+}
+const SUPPORT_RE = /^\s*(?:([A-Z]):|(Mode)\s|(Feed):|(RRT|Renal):?)\s*(.*)$/;
+function parseHistory(text){
+  const lines = norm(text).split('\n');
+  const supStart = lines.findIndex(l => /^\s*[A-Z]:\s/.test(l) || /^\s*Mode\s/.test(l) || /^\s*Feed:/.test(l));
+  const top = supStart >= 0 ? lines.slice(0, supStart).join('\n') : norm(text);
+  const s = sections(top, ['PMH', 'PSH', 'Allergies']);
+  const support = [];
+  if (supStart >= 0) for (const l of lines.slice(supStart)){
+    if (!l.trim()) continue;
+    const m = l.match(SUPPORT_RE);
+    if (m) support.push({k: m[1] || m[2] || m[3] || m[4], v: m[5].trim()});
+    else if (support.length) support[support.length - 1].v += ' ' + l.trim();
+  }
+  return {pmh: s.PMH || '', psh: s.PSH || '', allergies: s.Allergies ?? null, support};
+}
+// timeline / micro: one entry per line, "date: text"
+function entries(text){
+  const out = [];
+  for (const raw of norm(text).split('\n')){
+    const l = raw.trim(); if (!l) continue;
+    const m = l.match(/^((?:\[[^\]]+\]|\d{1,2}[\/.-]\d{1,2}(?:[\/.-]\d{2,4})?|\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,9}(?:\s+\d{2,4})?)(?:\s*(?:&|and|-)\s*(?:\[[^\]]+\]|\d{1,2}[\/.-]\d{1,2}(?:[\/.-]\d{2,4})?))?)\s*:?\s+(.*)$/);
+    if (m && m[2]) out.push({d: m[1], t: m[2]});
+    else if (out.length && /^[a-z(]/.test(l)) out[out.length - 1].t += ' ' + l;
+    else out.push({d: '', t: l});
+  }
+  return out;
+}
+function parsePatient(attrs){
+  const box = classifyBoxes(attrs);
+  const who = parseWho(box.who, box.other);
+  const st = sections(box.story, ['RFA', 'Working Dx', 'Timeline', 'Micro']);
+  const hist = parseHistory(box.history);
+  const iss = sections(box.issues, ['Trial', 'Key Issues', 'Jobs']);
+  let trial = (iss.Trial || '').replace(/\s*Arm Details:\s*$/i, '').replace(/\s*Arm Details:\s*/i, ' · ').trim();
+  return {bed: attrs.bedLabel || '', ...who, rfa: st.RFA || '', dx: st['Working Dx'] || '',
+    timeline: entries(st.Timeline || ''), micro: entries(st.Micro || ''), ...hist,
+    trial, issues: iss['Key Issues'] || '', jobs: iss.Jobs || ''};
+}
+function parseContacts(s){
+  s = norm(s).trim(); if (!s) return {pairs: [], email: ''};
+  let email = ''; const em = s.match(/(?:Unit\s+)?email:?\s*(\S+@\S+)/i);
+  if (em){ email = em[1]; s = s.replace(em[0], ''); }
+  // words build up a label until a bare number (or numbers like 421/422) closes it: "1st 700 ITU Doc Office 30572"
+  const pairs = []; let label = [];
+  for (const tok of s.split(/\s+/).filter(Boolean)){
+    if (/^\d[\d\/]*$/.test(tok) && label.length){ pairs.push([label.join(' '), tok]); label = []; }
+    else label.push(tok);
+  }
+  return {pairs, email};
+}
+// flags worked out from the text
+function flags(p){
+  const esc = p.escalation.join(' ');
+  const dnr = /not for (cpr|resus)|dnacpr|dnar/i.test(esc);
+  const ceiling = /not for (any )?(organ|intubation|ventilation|niv|rrt|escalation|icu|itu)|ceiling|ward.based/i.test(esc);
+  const full = !dnr && !ceiling && /full|for cpr|for intubation/i.test(esc);
+  const a = p.allergies;
+  // the report only prints an allergies line when there is something to say, so no line = nothing to show
+  const alg = a == null || !a.trim() ? null
+    : /^no known/i.test(a) ? {c: /not yet confirmed/i.test(a) ? 'warn' : 'ok', t: 'NKDA' + (/not yet confirmed/i.test(a) ? ' (not yet confirmed)' : '')}
+    : {c:'crit', t:'Allergy: ' + a.replace(/^has allergies\s*-\s*/i, '')};
+  const air = p.support.find(s => s.k === 'A');
+  const fio2 = air && (air.v.match(/\((\d{2,3})\s*%\s*O2\)/i) || [])[1];
+  const circ = p.support.find(s => s.k === 'C');
+  const pressors = circ && /noradrenaline|norepinephrine|vasopressin|adrenaline|epinephrine|dobutamine|metaraminol|phenylephrine|milrinone|terlipressin/i.test(circ.v);
+  const vent = air && /endotracheal|ETT|tracheostomy/i.test(air.v) && p.support.some(s => s.k === 'Mode');
+  const rrt = p.support.some(s => /^(R|RRT|Renal)$/.test(s.k)) || false;
+  return {dnr, ceiling, full, alg, fio2: fio2 ? +fio2 : null, pressors: !!pressors, vent: !!vent, rrt};
+}
+// tidy text before reading: byte-order marks, anything before the XML starts (e.g. a browser's
+// "This XML file does not appear to have any style information" line), and characters XML forbids
+// (stray control characters copied into ICCA free text, written as &#11; etc.)
+function cleanXml(t){
+  t = String(t).replace(/^\uFEFF/, '');
+  const a = t.search(/<\?xml|<Report[\s>]/); if (a > 0) t = t.slice(a);
+  const z = t.lastIndexOf('</Report>'); if (z >= 0) t = t.slice(0, z + 9);
+  const bad = c => (c < 32 && c !== 9 && c !== 10 && c !== 13) || c === 0xFFFE || c === 0xFFFF;
+  t = t.replace(/&#(x[0-9a-f]+|\d+);/gi, (m, n) => bad(n[0] === 'x' || n[0] === 'X' ? parseInt(n.slice(1), 16) : +n) ? ' ' : m);
+  return t.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ' ');
+}
+// fallback: pull elements and their attributes out with patterns, for files a strict reader rejects
+function looseElements(t){
+  const ent = v => v.replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (m, e) => e[0] === '#' ? String.fromCodePoint(e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : +e.slice(1)) : ({amp:'&', lt:'<', gt:'>', quot:'"', apos:"'"})[e.toLowerCase()]);
+  const out = [], re = /<([A-Za-z_][\w.-]*)((?:\s+[\w:.-]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*\/?>/g; let m;
+  while ((m = re.exec(t))){
+    const attrs = {}, ar = /([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g; let a;
+    while ((a = ar.exec(m[2]))) attrs[a[1]] = ent(a[2] ?? a[3]);
+    out.push({name: m[1].replace(/^.*:/, ''), attrs});
+  }
+  return out;
+}
+// tolerant mode: elements that follow a patient row (until the next row or table) belong to it
+function mergeLoose(els){
+  const out = []; let cur = null;
+  for (const e of els){
+    if (e.name === 'Details'){ cur = {name: 'Details', attrs: {...e.attrs}}; out.push(cur); }
+    else if (/^(Details\d|Tablix|Report)|_Collection$/.test(e.name)) cur = null;
+    else if (cur) for (const [k, v] of Object.entries(e.attrs)) if (!(k in cur.attrs)) cur.attrs[k] = v;
+  }
+  return out;
+}
+/*PARSE-END*/
+
+// ---------- state ----------
+let patients = [], contacts = {pairs: [], email: ''}, exportTime = null, isDemo = false;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function readXml(text){
+  // strict XML reader first; if the browser refuses the file, fall back to reading the rows directly
+  let els = null, why = '';
+  const clean = cleanXml(text);
+  const doc = new DOMParser().parseFromString(clean, 'application/xml');
+  const err = doc.getElementsByTagName('parsererror')[0];
+  if (!err) els = [...doc.getElementsByTagName('*')].map(el => ({name: el.localName, attrs: Object.fromEntries([...el.attributes].map(a => [a.name, a.value]))}));
+  else { why = (err.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 140); els = looseElements(clean); }
+  const det = err ? mergeLoose(els) : [...doc.getElementsByTagName('Details')].map(d => {
+    // text boxes inside a rectangle or panel sit in child elements: fold them into the patient's row
+    const attrs = Object.fromEntries([...d.attributes].map(a => [a.name, a.value]));
+    for (const c of d.getElementsByTagName('*')) for (const a of c.attributes) if (!(a.name in attrs)) attrs[a.name] = a.value;
+    return {name: 'Details', attrs};
+  });
+  if (!det.length){
+    console.warn('Handover export not read:', why, JSON.stringify(text.slice(0, 200)));
+    throw new Error(why ? "The file couldn't be read as the handover export (" + why + "). Send me the first few lines with patient details removed and I can adjust the reader."
+                        : "No patients found. Check the file is the ICCA Handover report exported as 'XML file with report data'.");
+  }
+  // Text copied from a browser's view of the file (Edge/Chrome showing the XML tree) loses the line breaks
+  // inside each text box, so headings like "Cons:" and "Timeline:" run together and every field lands in
+  // the wrong place. Refuse it rather than show a jumbled list.
+  const flat = det.length && det.every(e => Object.values(e.attrs).every(v => !/[\r\n]/.test(v)) && Object.values(e.attrs).some(v => /\S\s+(Cons|Timeline|PSH|Jobs):/i.test(v)));
+  if (flat) throw new Error("This text has lost its line breaks, which happens when it's copied from the file open in a web browser. Open the file in Notepad and copy from there (Ctrl+A, Ctrl+C), or drop the file onto the page.");
+  const ps = det.map(e => parsePatient(e.attrs));
+  let ct = {pairs: [], email: ''};
+  const ce = els.find(e => e.attrs.Contacts); if (ce) ct = parseContacts(ce.attrs.Contacts);
+  // an export timestamp, if the report includes one (an attribute named like ExportedAt / ExecutionTime / RunTime)
+  let stamp = null;
+  for (const e of els) for (const [n, v] of Object.entries(e.attrs)) if (!stamp && /export|execution|runtime|generated/i.test(n)) stamp = parseStamp(v);
+  // unit clues: report-level text boxes (anything outside the patient rows and contacts) and the bed labels
+  const labels = ps.map(p => p.bed);
+  for (const e of els){ if (/^Details/.test(e.name)) continue; for (const [n, v] of Object.entries(e.attrs)) if (!/^(xmlns|xsi:)/.test(n)) labels.push(v); }
+  return {ps, ct, stamp, labels, loose: !!err};
+}
+function parseStamp(s){
+  let m = String(s).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/); // 05/10/2026 17:24 (UK)
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5]);
+  const d = new Date(s); return isNaN(d) ? null : d;
+}
+
+// ---------- my notes: kept on this device under a scrambled key ----------
+const STORE = () => (isDemo ? 'icuho-demo-notes' : 'icuho-notes');
+const MAX_AGE = 3 * 24 * 3600e3;
+function loadNotes(){ try { return JSON.parse(localStorage.getItem(STORE()) || '{}'); } catch (e) { return null; } }
+function saveNotes(n){ try { localStorage.setItem(STORE(), JSON.stringify(n)); return true; } catch (e) { return false; } }
+let notes = {}, canStore = true;
+async function scramble(s){
+  const input = 'icu-handover-v1|' + s;
+  try { const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input)); return [...new Uint8Array(h)].slice(0, 12).map(b => b.toString(16).padStart(2, '0')).join(''); }
+  catch (e) { let h1 = 0xdeadbeef, h2 = 0x41c6ce57; for (let i = 0; i < input.length; i++){ const c = input.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); } h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909); return (h2 >>> 0).toString(16) + (h1 >>> 0).toString(16); }
+}
+async function keyPatients(){
+  const seen = new Set();
+  for (const p of patients){
+    // hospital number + admission date: follows the patient between beds and between exports, and never attaches
+    // to the next person in the bed. Name and NHS number are left out because they do get corrected mid-stay.
+    // Without a hospital number, fall back to name + DOB line.
+    const id = /\d/.test(p.hosp) ? [p.hosp.replace(/\s+/g, '').toUpperCase(), p.adm] : [p.name.toUpperCase(), p.dobLine, p.adm];
+    let k = await scramble(id.join('|'));
+    if (seen.has(k)) k = await scramble([...id, p.bed].join('|'));
+    seen.add(k); p.key = k;
+  }
+}
+function tidyNotes(){
+  const n = loadNotes(); if (n == null){ canStore = false; notes = {}; return; }
+  canStore = true; const now = Date.now(); const here = new Set(patients.map(p => p.key)); let removed = 0;
+  for (const [k, v] of Object.entries(n)){
+    const gone = !here.has(k) && exportTime && exportTime.getTime() > v.u; // patient no longer in a newer export
+    if (now - v.u > MAX_AGE || gone || !String(v.t || '').trim()){ delete n[k]; removed++; }
+  }
+  if (removed) saveNotes(n);
+  notes = n;
+}
+
+// ---------- rendering ----------
+function ageLabel(){
+  const el = $('#age'); if (!exportTime){ el.hidden = false; el.className = 'age warn'; el.textContent = 'Export time unknown'; $('#miniage').className = 'mini-age warn'; $('#miniage').textContent = 'Export time unknown'; return; }
+  const mins = Math.round((Date.now() - exportTime) / 60000);
+  const hm = mins < 60 ? mins + ' min' : Math.floor(mins / 60) + ' h ' + String(mins % 60).padStart(2, '0') + ' min';
+  const when = exportTime.toLocaleString('en-GB', {weekday:'short', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'});
+  el.hidden = false; el.className = 'age' + (mins > 13 * 60 ? ' crit' : mins > 7 * 60 ? ' warn' : '');
+  el.textContent = `Data from ${when} · ${hm} ago` + (mins > 13 * 60 ? ' · check for a newer export' : '');
+  const mini = $('#miniage'); mini.className = 'mini-age' + (mins > 13 * 60 ? ' crit' : mins > 7 * 60 ? ' warn' : ''); mini.textContent = `Data ${hm} old` + (mins > 13 * 60 ? ': check for a newer export' : '');
+  el.title = 'Time of the ICCA export. Amber after 7 hours, red after 13 hours.';
+}
+const textOr = (t, none = 'None recorded') => t && t.trim() ? `<div class="txt">${esc(t)}</div>` : `<div class="none">${none}</div>`;
+function tlHtml(list, show){
+  if (!list.length) return '<div class="none">None recorded</div>';
+  const recent = list.slice(-show).reverse(), earlier = list.slice(0, -show).reverse();
+  const li = (e, i, newest) => `<li class="${newest && i === 0 ? 'newest' : ''}"><span class="d">${esc(e.d)}</span><span class="t">${esc(e.t)}</span></li>`;
+  return `<ol class="tl">${recent.map((e, i) => li(e, i, true)).join('')}</ol>` +
+    (earlier.length ? `<details class="more"><summary>${earlier.length} earlier entr${earlier.length === 1 ? 'y' : 'ies'}</summary><ol class="tl">${earlier.map((e, i) => li(e, i, false)).join('')}</ol></details>` : '');
+}
+const SUP_LABEL = {A:'Airway / O₂', Mode:'Ventilation', C:'Circulation', B:'Breathing', R:'Renal', RRT:'Renal', Renal:'Renal', N:'Neuro', D:'Neuro', Feed:'Feed'};
+function cardHtml(p, i){
+  const f = flags(p);
+  const pill = f.dnr ? 'crit' : f.ceiling ? 'warn' : f.full ? 'ok' : '';
+  const alerts = [
+    f.alg && [f.alg.c, f.alg.t],
+    f.dnr && ['crit', 'Not for CPR'],
+    f.ceiling && ['warn', 'Ceiling of care'],
+    f.fio2 != null && f.fio2 >= 40 && [f.fio2 >= 60 ? 'crit' : 'warn', 'FiO₂ ' + f.fio2 + '%'],
+    f.vent && ['info', 'Ventilated'],
+    f.pressors && ['warn', 'Vasoactive drugs'],
+    f.rrt && ['info', 'RRT'],
+    p.trial && ['info', 'Trial: ' + p.trial]
+  ].filter(Boolean);
+  const note = notes[p.key];
+  return `<article class="pt c${i % 6}" id="pt-${i}" data-key="${p.key}">
+    <header class="head">
+      <span class="num">${esc(p.bed || 'Bed ?')}</span>
+      <div class="who">
+        <div class="name">${esc(p.name) || '<span class="none">No name</span>'}</div>
+        <div class="sub">${esc(p.dobLine)}</div>
+        <div class="ids">${esc(p.hosp)}${p.nhs ? ' · NHS ' + esc(p.nhs) : ''}</div>
+        <div class="sub">${p.adm ? 'Admitted ' + esc(p.adm.replace(LOS_RE, '').replace(/(\d{1,2}:\d{2}):\d{2}/, '$1').trim()) + (icuDay(p) != null ? ` · <b class="day" title="${LOS_RE.test(p.adm) ? 'Length of stay from ICCA, as at the export' : 'Calendar days since admission (admission day = day 0)'}">ICU day ${dayText(p)}</b>` : '') : ''}${p.cons ? (p.adm ? ' · ' : '') + 'Cons ' + esc(p.cons) : ''}</div>
+      </div>
+      <div class="esc">${p.escalation.map(e => `<span class="pill ${pill}">${esc(e)}</span>`).join('') || '<span class="pill warn">Escalation not recorded</span>'}</div>
+    </header>
+    <div class="alerts">${alerts.map(([c, t]) => `<span class="al ${c}">${esc(t)}</span>`).join('')}</div>
+    <div class="body">
+      <div class="col">
+        <div class="sec issues">
+          <div><h3>Key issues</h3>${textOr(p.issues)}</div>
+          <div class="jobs"><h3>Jobs</h3>${textOr(p.jobs, 'No jobs listed')}</div>
+        </div>
+        <div class="sec"><h3>Diagnosis</h3>
+          <dl class="kv"><dt>Working Dx</dt><dd>${esc(p.dx) || '<span class="none">—</span>'}</dd><dt>Reason for admission</dt><dd>${esc(p.rfa) || '<span class="none">—</span>'}</dd></dl>
+        </div>
+        <div class="sec notes"><h3><label for="note-${i}">My notes</label></h3>
+          <textarea id="note-${i}" data-note="${i}" placeholder="Personal reminders for this shift. Not clinical documentation.">${esc(note ? note.t : '')}</textarea>
+          <div class="state" data-state="${i}">${noteState(note)}</div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="sec"><h3>Support now</h3>
+          ${p.support.length ? `<dl class="kv">${p.support.map(s => `<dt>${esc(SUP_LABEL[s.k] || s.k)}</dt><dd>${esc(s.v)}</dd>`).join('')}</dl>` : '<div class="none">Nothing recorded</div>'}
+        </div>
+        <div class="sec full-only two"><div><h3>PMH</h3>${textOr(p.pmh)}</div><div><h3>PSH</h3>${textOr(p.psh)}</div></div>
+        <div class="sec full-only"><h3>Timeline (newest first)</h3>${tlHtml(p.timeline, 10)}</div>
+        <div class="sec full-only"><h3>Micro (newest first)</h3>${tlHtml(p.micro, 3)}</div>
+      </div>
+    </div>
+  </article>`;
+}
+function noteState(n){
+  if (!canStore) return 'Notes can’t be kept in this browser (private window or storage blocked). They will be lost when you close it.';
+  if (!n || !String(n.t).trim()) return 'Kept on this device only. Deleted when the patient leaves the export, or after 3 days.';
+  const d = new Date(n.u);
+  return 'Saved on this device ' + d.toLocaleString('en-GB', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'}) + '. Deleted when the patient leaves the export, or after 3 days.';
+}
+function render(){
+  const has = patients.length > 0;
+  $('#start').hidden = has; $('#view').hidden = !has;
+  $('#b-home').hidden = !has; $('#b-latest').hidden = !has || !folderHandle || isDemo; $('#b-compact').hidden = !has; $('#unitname').hidden = !has;
+  if (!has){ $('#age').hidden = true; return; }
+  $('#demoflag').hidden = !isDemo;
+  ageLabel();
+  const fl = patients.map(flags);
+  const cnt = (fn, l) => { const n = fl.filter(fn).length; return n ? ` · <b>${n}</b> ${l}` : ''; };
+  $('#summary').innerHTML = `<b>${patients.length}</b> patient${patients.length === 1 ? '' : 's'}` + cnt(f => f.vent, 'ventilated') + cnt(f => f.pressors, 'on vasoactive drugs') + cnt(f => f.dnr, 'not for CPR');
+  // bed map: every unit bed in floor order, occupied or empty, then any patient whose bed isn't on the map
+  const chip = (p, i) => `<button class="bed c${i % 6}${fl[i].dnr ? ' dnr' : ''}${notes[p.key] ? ' note' : ''}" type="button" data-go="${i}" aria-label="Bed ${esc(bedNo(p) ?? p.bed)}, ${esc(p.name)}">${esc(bedNo(p) ?? (String(p.bed).replace(/^(bed|patient)\s*/i, '') || '?'))}<span>${esc(initials(p.name))}${icuDay(p) != null ? `<i class="d">d${dayText(p, true)}</i>` : ''}</span></button>`;
+  const un = $('#unitname');
+  un.textContent = unitId() ? UNITS[unitId()].name + ' ICU' : 'Unit not identified'; un.className = 'unitname' + (unitId() ? '' : ' unknown');
+  un.title = unitId() ? 'Read from the export' : 'The export does not say which unit it is from, so the bed map is not shown. Beds are listed in number order.';
+  const U = UNITS[unitId()] || {rightToLeft: false, groups: []}; const unitBeds = U.groups.flatMap(g => [...g.beds, ...(g.below ? g.below.beds : [])]);
+  const byBed = new Map(); patients.forEach((p, i) => { const n = bedNo(p); if (n != null && unitBeds.includes(n)){ if (!byBed.has(n)) byBed.set(n, []); byBed.get(n).push(i); } });
+  const offMap = patients.map((p, i) => i).filter(i => !unitBeds.includes(bedNo(patients[i])));
+  const rev = a => U.rightToLeft ? [...a].reverse() : a; // chips are laid out left to right on screen
+  const bedHtml = n => byBed.has(n) ? byBed.get(n).map(i => chip(patients[i], i)).join('') : `<span class="bed empty" aria-label="Bed ${n} empty">${n}<span>empty</span></span>`;
+  const CAP = {side: 'Side room', pod: 'Pod', open: ''};
+  const grpHtml = g => `<div class="grp ${g.kind}"><div class="grp-beds">${rev(g.beds).map(bedHtml).join('')}</div><div class="cap">${CAP[g.kind]}</div></div>`;
+  const mapHtml = rev(U.groups).map(g => g.below ? `<div class="stack">${grpHtml(g)}${grpHtml(g.below)}</div>` : grpHtml(g)).join('');
+  const offSorted = offMap.sort((a, b) => (bedNo(patients[a]) ?? 99) - (bedNo(patients[b]) ?? 99));
+  const offHtml = offMap.length ? `<div class="grp ${unitId() ? 'off' : 'open'}"><div class="grp-beds">${offSorted.map(i => chip(patients[i], i)).join('')}</div><div class="cap">${unitId() ? 'Not on map' : 'Unit not identified: no bed map'}</div></div>` : '';
+  $('#beds').innerHTML = U.rightToLeft ? offHtml + mapHtml : mapHtml + offHtml;
+    requestAnimationFrame(() => { const b = $('#beds'); b.scrollLeft = U.rightToLeft ? b.scrollWidth : 0; }); // start at bed 1
+  $('#cards').innerHTML = patients.map(cardHtml).join('');
+  const ct = $('#contacts');
+  ct.hidden = !contacts.pairs.length && !contacts.email;
+  ct.innerHTML = `<h2>Useful numbers</h2><div class="ct">${contacts.pairs.map(([l, n]) => `<div><span>${esc(l)}</span><b>${esc(n)}</b></div>`).join('')}${contacts.email ? `<div class="mail"><span>Unit email</span><b>${esc(contacts.email)}</b></div>` : ''}</div>`;
+  setBarHeight(); requestAnimationFrame(setBarHeight);
+}
+// ---------- unit layouts ----------
+// groups run from bed 1 upwards; kind: open bed space, pod (connected pair) or side room.
+// rightToLeft: bed 1 is on the right of the unit and numbers rise to the left.
+const open = n => ({kind: 'open', beds: [n]});
+const UNITS = {
+  wrh: {name: 'Worcester', rightToLeft: true, groups: [
+    open(1), open(2), open(3), open(4), open(5), open(6), open(7),
+    {kind: 'pod', beds: [8, 9]}, {kind: 'pod', beds: [10, 11]}, {kind: 'pod', beds: [12, 14]}, // no bed 13
+    {kind: 'side', beds: [15]}, {kind: 'side', beds: [16]}]},
+  // Alexandra: beds run left to right; side rooms 1 and 8 sit below beds 2 and 7, as on the plan
+  alex: {name: 'Alexandra', rightToLeft: false, groups: [
+    {...open(2), below: {kind: 'side', beds: [1]}}, open(3), open(4), open(5), open(6), {...open(7), below: {kind: 'side', beds: [8]}}]}
+};
+// Which unit the export is from. Read only from the export itself, never guessed or remembered:
+//  1. a unit/location text box on the report, the bed labels, or the file name (e.g. "WRH Handover.xml") (e.g. "WRH ICU Bed 4", "Alex ITU 2")
+//  2. a bed above 8 can only be Worcester
+// The clinical text and the contacts line are not used: they mention the other unit ("Alex ITU 42090").
+// If the clues disagree or there are none, no bed map is drawn.
+let unitDetected = null;
+const UNIT_RE = {wrh: /(?<![a-z])(worcester|worcs|WRH)(?![a-z])/i, alex: /(?<![a-z])(alexandra|alex|AGH|redditch)(?![a-z])/i}; // letters only as boundaries, so "WRH_Handover" counts
+function detectUnit(labels, ps){
+  const found = new Set();
+  for (const t of labels) for (const [id, re] of Object.entries(UNIT_RE)) if (re.test(t)) found.add(id);
+  if (ps.some(p => bedNo(p) > 8)) found.add('wrh');
+  return found.size === 1 ? [...found][0] : null;
+}
+function unitId(){ return unitDetected; }
+// ICU day from the "Adm:" date, counted in calendar days to the time of the export (admission day = day 0)
+const DAY_ONE = 0; // admission day is day 0 on this unit
+// reads 05/10/2026, 5-10-26, 05.10.2026, 5 Oct 2026, 05-Oct-2026, 2026-10-05 (times after the date are ignored)
+const MONTHS = 'jan feb mar apr may jun jul aug sep oct nov dec'.split(' ');
+function parseUkDate(t){
+  t = String(t || ''); let m;
+  const yr = y => +y < 100 ? 2000 + +y : +y;
+  if ((m = t.match(/(\d{4})-(\d{1,2})-(\d{1,2})/))) return new Date(+m[1], +m[2] - 1, +m[3]);
+  if ((m = t.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/))) return new Date(yr(m[3]), +m[2] - 1, +m[1]);
+  if ((m = t.match(/(\d{1,2})(?:st|nd|rd|th)?[\s\/.-]*([A-Za-z]{3})[A-Za-z]*[\s\/.,-]*(\d{2,4})/))){ const mo = MONTHS.indexOf(m[2].toLowerCase()); if (mo >= 0) return new Date(yr(m[3]), mo, +m[1]); }
+  return null;
+}
+// ICCA's own length of stay, printed in brackets after the admission time: "(D4.2)" = 4.2 days, as at the export
+const LOS_RE = /\(\s*[A-Za-z]*\s*(\d+(?:\.\d+)?)\s*\)\s*$/;
+// header: keep the decimal under 2 days (e.g. 0.5, 1.8), whole days after that; bed chips: whole days always
+function dayText(p, chip){
+  const d = icuDay(p); if (d == null) return null;
+  const n = parseFloat(d);
+  return chip || n >= 2 ? String(Math.floor(n)) : String(d);
+}
+function icuDay(p){
+  const los = String(p.adm || '').match(LOS_RE); if (los) return los[1];
+  // otherwise count calendar days from the admission date to the export
+  const adm = parseUkDate(p.adm); if (!adm) return null;
+  const ref = exportTime || new Date();
+  const days = Math.round((new Date(ref.getFullYear(), ref.getMonth(), ref.getDate()) - adm) / 864e5);
+  return days >= 0 && days < 3650 ? days + DAY_ONE : null;
+}
+function bedNo(p){ const m = String(p.bed || '').match(/(\d+)/); return m ? +m[1] : null; }
+// "SURNAME, Firstname" or "Firstname SURNAME" -> first-name initial + surname initial
+function initials(n){
+  n = String(n || '').replace(/[\[\]()]/g, '').trim(); if (!n) return '';
+  let first, last;
+  if (n.includes(',')){ [last, first] = n.split(',').map(s => s.trim()); }
+  else { const w = n.split(/\s+/); first = w[0]; last = w.length > 1 ? w[w.length - 1] : ''; }
+  return ((first || '')[0] || '').toUpperCase() + ((last || '')[0] || '').toUpperCase();
+}
+function setBarHeight(){
+  const bar = $('#bar'), pinned = getComputedStyle(bar).position === 'sticky';
+  document.documentElement.style.setProperty('--barh', (pinned ? bar.offsetHeight : 0) + 'px');
+  document.documentElement.style.setProperty('--bedsh', ($('#pin').offsetHeight || 60) + 'px');
+}
+addEventListener('resize', setBarHeight);
+
+// ---------- events ----------
+let noteT = {};
+document.addEventListener('input', e => {
+  const t = e.target; if (!t.dataset.note) return;
+  const i = +t.dataset.note, p = patients[i];
+  clearTimeout(noteT[i]);
+  noteT[i] = setTimeout(() => {
+    const n = loadNotes() || {};
+    if (t.value.trim()) n[p.key] = {t: t.value, u: Date.now()}; else delete n[p.key];
+    canStore = saveNotes(n); notes = n;
+    document.querySelector(`[data-state="${i}"]`).textContent = noteState(n[p.key]);
+    document.querySelector(`.bed[data-go="${i}"]`)?.classList.toggle('note', !!n[p.key]);
+  }, 400);
+});
+$('#beds').addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) document.getElementById('pt-' + b.dataset.go).scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'}); });
+$('#b-compact').onclick = () => { const on = document.body.classList.toggle('compact'); $('#b-compact').classList.toggle('on', on); $('#b-compact').setAttribute('aria-pressed', on); };
+$('#b-home').onclick = () => { patients = []; isDemo = false; $('#newer').hidden = true; render(); scrollTo(0, 0); if (typeof showFolder === 'function') showFolder(false); };
+const pick = () => $('#file').click();
+$('#b-open').onclick = pick; $('#b-open2').onclick = pick;
+$('#file').addEventListener('change', e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; });
+let depth = 0;
+addEventListener('dragenter', e => { e.preventDefault(); depth++; $('#drop').classList.add('hot'); });
+addEventListener('dragleave', () => { if (--depth <= 0){ depth = 0; $('#drop').classList.remove('hot'); } });
+addEventListener('dragover', e => e.preventDefault());
+// ---------- paste: a copied file, or the XML text itself ----------
+const looksLikeExport = t => /<Report[\s>]/.test(t) && /<Details[\s>]/.test(t);
+const notAnExport = () => toast("That doesn't look like the handover export. Copy the XML file (or all of its text) and paste again.", 6000);
+function pasteText(t){ if (looksLikeExport(t)){ load(t, null, false, 'pasted'); return true; } return false; }
+addEventListener('paste', e => {
+  if (e.target.closest && e.target.closest('input,textarea,select')) return; // normal pasting into My notes
+  const f = [...(e.clipboardData.files || [])].find(x => /\.xml$/i.test(x.name) || /xml/.test(x.type));
+  if (f){ e.preventDefault(); loadFile(f); return; }
+  const t = e.clipboardData.getData('text/plain');
+  if (t){ e.preventDefault(); if (!pasteText(t)) notAnExport(); }
+});
+// one-tap paste button (phones; the browser may ask permission the first time)
+$('#b-paste').onclick = async () => {
+  try {
+    if (navigator.clipboard && navigator.clipboard.read){
+      for (const it of await navigator.clipboard.read()) if (it.types.includes('text/plain') && pasteText(await (await it.getType('text/plain')).text())) return;
+      return notAnExport();
+    }
+    if (!pasteText(await navigator.clipboard.readText())) notAnExport();
+  } catch (err) { toast('This browser blocked reading the clipboard. Press Ctrl+V on the page instead, or use Open export.', 6000); }
+};
+addEventListener('drop', e => { e.preventDefault(); depth = 0; $('#drop').classList.remove('hot'); const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+setInterval(() => { if (patients.length) ageLabel(); }, 60000);
+
+// the report server may write UTF-8 or UTF-16 (Unicode), with or without a byte-order mark
+function decodeBytes(u){
+  const le = (u[0] === 0xFF && u[1] === 0xFE) || (u[0] === 0x3C && u[1] === 0x00);
+  const be = (u[0] === 0xFE && u[1] === 0xFF) || (u[0] === 0x00 && u[1] === 0x3C);
+  let t = new TextDecoder(le ? 'utf-16le' : be ? 'utf-16be' : 'utf-8').decode(u);
+  if (!le && !be && t.includes('\uFFFD') && !/encoding=["']utf-8/i.test(t.slice(0, 200))) t = new TextDecoder('windows-1252').decode(u);
+  // the XML's own declaration may say utf-16 even though we have already decoded it; the reader ignores that once it's text
+  return t.replace(/(<\?xml[^>]*encoding=["'])utf-16(["'])/i, '$1utf-8$2');
+}
+function loadFile(f){
+  const r = new FileReader();
+  r.onload = () => { loadedMod = f.lastModified; load(decodeBytes(new Uint8Array(r.result)), new Date(f.lastModified), false, f.name); };
+  r.readAsArrayBuffer(f);
+}
+// ---------- layout check: the file's structure with all patient details masked ----------
+let lastText = '', checkNext = false;
+const KEEP = new Set('rfa working dx timeline micro pmh psh allergies has no known not yet confirmed mode feed key issues jobs trial arm details nhs adm cons for cpr full escalation support o2 xml version encoding utf report tablix collection contacts unit email bedlabel'.split(' '));
+function mask(v){
+  const lines = norm(v).split('\n');
+  const out = lines.slice(0, 14).map(l => {
+    const m = l.replace(/[A-Za-z]+|\d+/g, w => /^\d+$/.test(w) ? '9'.repeat(Math.min(w.length, 6)) : KEEP.has(w.toLowerCase()) ? w : w.replace(/[a-z]/g, 'x').replace(/[A-Z]/g, 'X').slice(0, 10));
+    return m.length > 60 ? m.slice(0, 60) + '…' : m;
+  });
+  if (lines.length > 14) out.push(`(+${lines.length - 14} more lines)`);
+  return out.join('\n');
+}
+function layoutReport(text){
+  const out = [];
+  const clean = cleanXml(text);
+  out.push('Length: ' + text.length + ' characters. Starts: ' + JSON.stringify(mask(text.slice(0, 120)).replace(/\n/g, '⏎')));
+  const doc = new DOMParser().parseFromString(clean, 'application/xml');
+  const err = doc.getElementsByTagName('parsererror')[0];
+  out.push('Strict XML: ' + (err ? 'NO (' + (err.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 160) + ')' : 'yes'), '');
+  const showAttrs = (attrs, pad) => { for (const [n, v] of attrs) out.push(pad + '  @' + n + ' = ' + mask(v).split('\n').join('\n' + pad + '      ')); };
+  if (!err){
+    let rows = 0;
+    const walk = (el, d) => {
+      const pad = '  '.repeat(d);
+      if (el.localName === 'Details' && ++rows > 2) return;
+      out.push(pad + '<' + el.localName + '>' + (el.children.length ? ' (' + el.children.length + ' children)' : ''));
+      showAttrs([...el.attributes].filter(a => !/^xmlns|^xsi:/.test(a.name)).map(a => [a.name, a.value]), pad);
+      for (const c of el.children) walk(c, d + 1);
+    };
+    walk(doc.documentElement, 0);
+    if (rows > 2) out.push(`(… ${rows - 2} more <Details> rows not shown)`);
+  } else {
+    let rows = 0;
+    for (const e of looseElements(clean)){ if (e.name === 'Details' && ++rows > 2) continue; out.push('<' + e.name + '>'); showAttrs(Object.entries(e.attrs), ''); }
+  }
+  try {
+    const {ps} = readXml(text); const p = ps[0];
+    out.push('', 'What the reader made of the first patient:');
+    for (const k of ['bed', 'name', 'dobLine', 'hosp', 'nhs', 'adm', 'cons', 'rfa', 'dx', 'pmh', 'psh', 'allergies', 'trial', 'issues', 'jobs'])
+      out.push('  ' + k + ': ' + JSON.stringify(mask(p[k] ?? '').replace(/\n/g, '⏎').slice(0, 80)));
+    out.push('  escalation: ' + JSON.stringify(p.escalation.map(mask)), '  support: ' + p.support.map(x => x.k).join(', '), '  timeline entries: ' + p.timeline.length + ', micro entries: ' + p.micro.length);
+  } catch (e) { out.push('', 'Reader error: ' + e.message); }
+  return out.join('\n');
+}
+function showLayout(text){
+  $('#diag-out').value = layoutReport(text); $('#diag').hidden = false; $('#diag').scrollIntoView({block: 'start'});
+}
+$('#b-check').onclick = () => { checkNext = true; $('#file').click(); };
+$('#diag-close').onclick = () => { $('#diag').hidden = true; };
+$('#diag-copy').onclick = async () => {
+  const t = $('#diag-out');
+  try { await navigator.clipboard.writeText(t.value); toast('Layout copied'); }
+  catch (e) { t.focus(); t.select(); toast('Press Ctrl+C to copy the selected text'); }
+};
+async function load(text, fileTime, demo, fileName = ''){
+  if (checkNext){ checkNext = false; showLayout(text); return; }
+  try {
+    const {ps, ct, stamp, labels, loose} = readXml(text);
+    isDemo = demo; patients = ps; lastText = demo ? '' : text; contacts = ct; exportTime = stamp || fileTime || null;
+    unitDetected = detectUnit([...labels, fileName.replace(/\.xml$/i, '')], ps); // the file name counts too, e.g. "WRH Handover.xml"
+    await keyPatients(); tidyNotes(); render(); scrollTo(0, 0);
+    if (!demo) toast(`Loaded ${ps.length} patient${ps.length === 1 ? '' : 's'}` + (loose ? ' (read in tolerant mode: check the cards look right)' : ''), loose ? 6000 : 2600);
+  } catch (err){ toast(err.message || String(err), 6000); console.error(err); }
+}
+let toastT;
+function toast(msg, ms = 2600){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), ms); }
+
+// ---------- example export (made-up patients, same layout as the ICCA report) ----------
+const N = '\n';
+const DEMO = [
+  {bedLabel:'BED 1',
+   Textbox14:['TEST, Margaret','14/03/1951 (75y) F','H0000001','NHS: 999 000 0101','Adm:','01/10/2026 03:40:00 (D4.6)','14/03/1951 (75y) F','Cons: DR A EXAMPLE','Not for CPR',' Not for CPR',' For NIV, not for intubation'].join(N),
+   Textbox20:['RFA: Type 2 respiratory failure','','Working Dx: Infective exacerbation of COPD, right lower lobe CAP','','Timeline: 01/10/26: Admitted from ED on NIV, pH 7.21, pCO2 9.8','02/10/26: Improving gases, NIV breaks for meals. TEP discussed with daughter: not for intubation','03/10/26: NIV overnight only, 2L NC by day','04/10/26: Mobilised with physio, eating well','','Micro: 01/10/26: Co-amoxiclav and clarithromycin started','03/10/26: Sputum: H. influenzae, sensitive to co-amoxiclav. Clarithromycin stopped'].join(N),
+   Textbox18:['PMH:','COPD (FEV1 38%), home O2 2L','HTN','T2DM (diet controlled)','PSH:','Right THR 2018','','Allergies: Has allergies - Penicillin? (rash as child, tolerated co-amoxiclav)','','A: Nasal cannula (28 % O2)','Mode NIV ST overnight only',''].join(N),
+   Textbox10:['Key Issues:','COPD exacerbation, NIV dependent overnight. Not for intubation (TEP in notes). Clarify penicillin allergy history','Jobs:','Repeat VBG 18:00 off NIV. Respiratory team review re: home NIV assessment. Step down if stable off NIV tonight'].join(N)},
+  {bedLabel:'BED 2',
+   Textbox14:['SAMPLE, John','22/08/1963 (63y) M','H0000002','NHS: 999 000 0202','Adm:','28/09/2026 22:15:00 (D7.8)','22/08/1963 (63y) M','Cons: DR B SPECIMEN',' Full escalation'].join(N),
+   Textbox20:['RFA: Septic shock, faecal peritonitis','','Working Dx: Perforated sigmoid diverticulitis, post Hartmann\'s procedure','','Timeline: 28/09/26: Emergency laparotomy, Hartmann\'s. Returned ventilated on noradrenaline','29/09/26: Vasopressin added. AKI stage 3, oliguric','29/09/26: CVVHDF started via R femoral vascath','30/09/26: Noradrenaline weaning, lactate 1.4','01/10/26: Stoma dusky at edges: reviewed by surgeons, for observation','02/10/26: SAT failed, agitated. Propofol restarted','03/10/26: Sedation hold, obeying commands. CPAP/PS trial','04/10/26: Off vasopressin. Filter clotted x2, citrate anticoagulation started','05/10/26: NG feed at target rate'].join(N),
+   Textbox18:['PMH:','Diverticular disease','Hypercholesterolaemia','Ex smoker 30 pack years','PSH:','Laparoscopic cholecystectomy 2015','','A: Endotracheal tube subglottic suction (40 % O2)','Mode CPAP /PS /ATC','C: Noradrenaline (0.08 mcg/kg/min)','R: CVVHDF, citrate, 25 ml/kg/hr, neutral balance','Feed: Peptamen (65 ml/hr) '].join(N),
+   Textbox10:['Key Issues:','Septic shock improving, still on low-dose noradrenaline. AKI on CVVHDF, no urine output. Stoma viability being watched by surgical team','Jobs:','Chase peritoneal fluid sensitivities. Surgical review of stoma this evening. SBT tomorrow if FiO2 below 40%. Check citrate ratio (post-filter Ca) at 22:00'].join(N)},
+  {bedLabel:'BED 3',
+   Textbox14:['DEMO, Priya','03/11/2002 (23y) F','H0000003','NHS: 999 000 0303','Adm:','04/10/2026 19:05:00 (D0.9)','03/11/2002 (23y) F','Cons: DR C PLACEHOLDER',' Full escalation, for CPR'].join(N),
+   Textbox20:['RFA: Diabetic ketoacidosis','','Working Dx: Severe DKA (pH 6.95, ketones 6.8), precipitant likely missed insulin doses','','Timeline: 04/10/26: Admitted from ED. FRIII and fluids per DKA protocol. K+ 3.2, replaced','05/10/26 06:00: Ketones 0.4, pH 7.34. Eating and drinking','05/10/26: Back on basal-bolus insulin, FRIII off at 12:00','','Micro: Nil'].join(N),
+   Textbox18:['PMH:','T1DM since age 9, on MDI insulin','Anxiety','PSH:','Nil','','Allergies: No Known Allergies','','A: Self ventilating (21 % O2)',''].join(N),
+   Textbox10:['Key Issues:','DKA resolved. Wardable','Jobs:','Diabetes specialist nurse review before step-down. Ward bed requested on bed management system'].join(N)},
+  {bedLabel:'BED 4',
+   Textbox14:['PLACEHOLDER, Tom','09/06/1988 (38y) M','H0000004','NHS: 999 000 0404','Adm:','02/10/2026 23:50:00 (D2.7)','09/06/1988 (38y) M','Cons: DR B SPECIMEN',' Full escalation'].join(N),
+   Textbox20:['RFA: Traumatic brain injury, GCS 6 at scene','','Working Dx: Diffuse axonal injury, small right frontal contusion, no surgical lesion','','Timeline: 02/10/26: Cyclist vs car. Intubated at scene. CT: DAI, R frontal contusion. Neurosurgery: not for intervention, ICP bolt inserted','03/10/26: ICP 18-22, hypertonic saline x2, CPP 65','04/10/26: ICP settled below 20. Repeat CT stable','05/10/26: Seizure-like activity on sedation hold, levetiracetam started, EEG requested','','Micro: Nil'].join(N),
+   Textbox18:['PMH:','Nil','PSH:','ORIF left wrist 2012','','Allergies: No Known Allergies','','A: Endotracheal tube subglottic suction (35 % O2)','Mode VC-SIMV /PS','C: Noradrenaline (0.05 mcg/kg/min) for CPP','Feed: Nutrison Protein Plus (45 ml/hr) '].join(N),
+   Textbox10:['Trial: GenOMICC Arm Details: Sample taken','Key Issues:','TBI with ICP monitoring. CPP target above 60. Na target 145-155','Jobs:','EEG tomorrow morning. Na 6-hourly. Discuss with neurosurgery re: removing bolt. Family meeting Wed 14:00'].join(N)},
+  {bedLabel:'BED 6',
+   Textbox14:['FICTION, Eileen','30/01/1940 (86y) F','H0000006','NHS: 999 000 0606','Adm:','03/10/2026 16:30:00 (D2.0)','30/01/1940 (86y) F','Cons: DR A EXAMPLE','Not for CPR',' Not for intubation or RRT, ward-based ceiling after this admission'].join(N),
+   Textbox20:['RFA: Post-operative monitoring after emergency laparotomy','','Working Dx: Small bowel obstruction from adhesions, adhesiolysis, no resection','','Timeline: 03/10/26: Laparotomy, adhesiolysis. Extubated in theatre','04/10/26: Delirious overnight. Haloperidol 0.5 mg x1','05/10/26: Settled. NG out, sips','','Micro: 03/10/26: Prophylactic cefuroxime and metronidazole, 24 h only'].join(N),
+   Textbox18:['PMH:','Atrial fibrillation (apixaban, held)','CKD 3b','Mild cognitive impairment','PSH:','Two previous laparotomies (1975, 1992)','','Allergies: Has allergies - Morphine (hallucinations); Trimethoprim (rash)','','A: Nasal cannula (24 % O2)',''].join(N),
+   Textbox10:['Key Issues:','Post-op delirium, improving. Apixaban held since surgery','Jobs:','Surgical team to decide when apixaban restarts. Step down to surgical ward tomorrow'].join(N)}
+];
+const DEMO_CONTACTS = '1st 600 2nd 601 3rd 602 Outreach 650 Pharmacy 61234 Blood Bank 61500 Biochem 61600 Haematology 61700 Unit email: icu.example@nhs.net';
+function demoXml(unit){
+  const x = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/\n/g, '&#13;&#10;');
+  return `<?xml version="1.0" encoding="utf-8"?><Report xmlns="Handover" Name="Handover" UnitName="${unit}"><Tablix1><Details_Collection>` +
+    DEMO.map(d => '<Details ' + Object.entries(d).map(([k, v]) => `${k}="${x(v)}"`).join(' ') + ' />').join('') +
+    `</Details_Collection></Tablix1><Tablix6><Details1_Collection><Details1 outlier="" Contacts="${x(DEMO_CONTACTS)}" /></Details1_Collection></Tablix6></Report>`;
+}
+$('#b-demo').onclick = () => load(demoXml('Worcester Royal Hospital ICU'), new Date(Date.now() - 100 * 60000), true);
+$('#b-demo-alex').onclick = () => load(demoXml('Alexandra Hospital ITU'), new Date(Date.now() - 100 * 60000), true);
+
+// ---------- handover folder: chosen once, remembered on this computer (Edge/Chrome on a PC or in Citrix) ----------
+// Uses the browser's folder access. Not available on phones, or inside the claude.ai preview.
+let folderHandle = null, loadedMod = 0, newestSeen = 0;
+const folderOK = 'showDirectoryPicker' in window && window.self === window.top;
+const idb = (mode, fn) => new Promise((res, rej) => {
+  const o = indexedDB.open('icu-handover', 1);
+  o.onupgradeneeded = () => o.result.createObjectStore('kv');
+  o.onsuccess = () => { const tx = o.result.transaction('kv', mode); const r = fn(tx.objectStore('kv')); tx.oncomplete = () => res(r && r.result); tx.onerror = () => rej(tx.error); };
+  o.onerror = () => rej(o.error);
+});
+const saveFolder = h => idb('readwrite', st => st.put(h, 'folder')).catch(() => {});
+const readFolder = () => idb('readonly', st => st.get('folder')).catch(() => null);
+async function canRead(h, ask){
+  try { if (await h.queryPermission({mode: 'read'}) === 'granted') return true; return ask ? (await h.requestPermission({mode: 'read'})) === 'granted' : false; }
+  catch (e) { return false; }
+}
+async function listExports(h){
+  const out = [];
+  for await (const [name, e] of h.entries()) if (e.kind === 'file' && /\.xml$/i.test(name)){ const f = await e.getFile(); out.push({name, f}); }
+  return out.sort((a, b) => b.f.lastModified - a.f.lastModified);
+}
+const when = t => new Date(t).toLocaleString('en-GB', {weekday:'short', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'});
+async function showFolder(ask){
+  const box = $('#folder'); box.hidden = false;
+  if (!folderOK){
+    // say why, instead of hiding the box
+    const why = window.self !== window.top ? "This view of the page can't read folders (for example the claude.ai preview or a OneDrive preview). Open the downloaded ICU Handover.html file in Edge or Chrome instead."
+      : !window.isSecureContext ? "This browser won't allow folder access for a page opened this way. Open the page from the M: drive or a website address in Edge or Chrome."
+      : /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? "Phone browsers can't open folders. Use Open export below and choose the file from OneDrive."
+      : "This browser doesn't support opening folders. Use Microsoft Edge or Google Chrome on a computer.";
+    $('#f-choose').hidden = true; $('#f-latest').hidden = true; $('#flist').innerHTML = '';
+    $('#folder-help').textContent = why; return;
+  }
+  $('#folder-name').textContent = folderHandle ? folderHandle.name : '';
+  $('#f-choose').textContent = folderHandle ? 'Change folder…' : 'Choose handover folder…';
+  $('#f-latest').hidden = !folderHandle; $('#flist').innerHTML = '';
+  if (!folderHandle) return;
+  if (!(await canRead(folderHandle, ask))){ $('#f-latest').textContent = 'Allow access and open latest'; return; }
+  $('#f-latest').textContent = 'Open latest export';
+  const files = await listExports(folderHandle);
+  $('#flist').innerHTML = files.slice(0, 6).map((x, i) => `<li><button type="button" data-fi="${i}"><span>${esc(x.name)}</span><span class="when">${when(x.f.lastModified)}</span></button></li>`).join('') || '<li class="sub">No XML exports in this folder yet.</li>';
+  $('#flist').onclick = e => { const b = e.target.closest('[data-fi]'); if (b) loadFile(files[+b.dataset.fi].f); };
+}
+async function openLatest(ask){
+  if (!folderHandle || !(await canRead(folderHandle, ask))) return false;
+  const files = await listExports(folderHandle);
+  if (!files.length){ toast('No XML exports in the handover folder yet.', 4000); return false; }
+  newestSeen = files[0].f.lastModified; $('#newer').hidden = true;
+  loadFile(files[0].f); return true;
+}
+$('#f-choose').onclick = async () => {
+  try { folderHandle = await window.showDirectoryPicker({id: 'icu-handover', mode: 'read'}); await saveFolder(folderHandle); await showFolder(false); openLatest(false); }
+  catch (e) { if (e && e.name !== 'AbortError') toast("Couldn't open that folder: " + e.message, 5000); }
+};
+$('#f-latest').onclick = () => openLatest(true).then(ok => { if (!ok) showFolder(false); });
+$('#b-latest').onclick = () => openLatest(true);
+// while a list is open, look for a newer export every 5 minutes and when the page comes back on screen
+async function checkNewer(){
+  if (!folderHandle || isDemo || !patients.length || !(await canRead(folderHandle, false))) return;
+  const files = await listExports(folderHandle).catch(() => []);
+  if (files[0] && files[0].f.lastModified > loadedMod + 1000 && files[0].f.lastModified !== newestSeen){
+    $('#newer-text').textContent = 'Newer export: ' + when(files[0].f.lastModified); $('#newer').hidden = false;
+  }
+}
+$('#newer-load').onclick = () => openLatest(true);
+$('#newer-x').onclick = async () => { $('#newer').hidden = true; const f = await listExports(folderHandle).catch(() => []); if (f[0]) newestSeen = f[0].f.lastModified; };
+setInterval(checkNewer, 5 * 60 * 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkNewer(); });
+(async () => {
+  if (!folderOK){ showFolder(false); return; }
+  folderHandle = await readFolder() || null;
+  await showFolder(false);
+  // if the browser still allows access (Edge/Chrome can remember it), open the newest export straight away
+  if (folderHandle && !patients.length && await canRead(folderHandle, false)) openLatest(false);
+})();
+
+// ---------- download a copy (only inside the claude.ai page, where the copy is published alongside) ----------
+// The copy is the page's own published source, never the page as it stands, so no patient data can end up in it.
+(async () => {
+  if (!window.claude || typeof window.claude.use !== 'function') return; // already a downloaded copy
+  let downloads = null; try { downloads = await window.claude.use('downloads'); } catch (e) {}
+  if (!downloads) return;
+  $('#getcopy').hidden = false;
+  $('#b-getcopy').onclick = async () => {
+    try {
+      const r = await fetch('download/icu-handover.html'); if (!r.ok) throw {code: 'unavailable'};
+      await downloads.save({filename: 'ICU Handover.html', data: await r.blob()});
+      toast('Saved ICU Handover.html. Put it on the M: drive and open it in Edge.', 5000);
+    } catch (e) { if (!e || e.code !== 'declined') toast("The copy couldn't be downloaded here" + (e && e.code ? ' (' + e.code + ')' : '') + '. Ask for the file instead.', 5000); }
+  };
+})();
+
+// ---------- when hosted as a website (GitHub Pages) ----------
+const SITE = 'https://nickjcowley.github.io/icu-handover/';
+const HOSTED = location.protocol === 'https:' && !window.claude && window.self === window.top;
+if (HOSTED){
+  // a plain download link works on an ordinary website
+  $('#getcopy').hidden = false; $('#b-getcopy').hidden = true; $('#a-getcopy').hidden = false;
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+// new-version notice: every copy (website, installed app, downloaded file) checks the published version
+const MY_VERSION = ($('.ver')?.textContent || '').trim();
+function buildNo(label){ // "v5 Oct 2026z1" -> date, then letter, then any number after it
+  const m = String(label).match(/v?(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})([a-z]?)(\d*)/); if (!m) return 0;
+  const mon = 'janfebmaraprmayjunjulaugsepoctnovdec'.indexOf(m[2].toLowerCase()) / 3 + 1;
+  return (((+m[3] * 100 + mon) * 100 + +m[1]) * 100 + (m[4] ? m[4].charCodeAt(0) - 96 : 0)) * 100 + (+m[5] || 0);
+}
+let lastCheck = 0;
+async function checkForUpdate(force){
+  if (window.claude || (!force && Date.now() - lastCheck < 15 * 60 * 1000) || !navigator.onLine) return; lastCheck = Date.now();
+  try {
+    const r = await fetch(SITE + 'version.json?t=' + Date.now(), {cache: 'no-store'}); if (!r.ok) return;
+    const v = await r.json(); if (buildNo(v.version) <= buildNo(MY_VERSION) || $('#updbar')) return;
+    const bar = document.createElement('div'); bar.id = 'updbar'; bar.className = 'updbar'; bar.setAttribute('role', 'status');
+    const local = location.protocol === 'file:';
+    bar.innerHTML = `<span><b>New version available</b> · ${esc(v.version)}${v.notes ? ' · ' + esc(v.notes) : ''}</span><span class="row">${local ? `<a class="btn small" href="${SITE}" target="_blank" rel="noopener">Get it</a>` : '<button class="btn small" type="button" id="upd-go">Update now</button>'}<button class="btn small" type="button" id="upd-x">Later</button></span>`;
+    document.body.prepend(bar);
+    $('#upd-x').onclick = () => bar.remove();
+    if ($('#upd-go')) $('#upd-go').onclick = async () => { try { const reg = await navigator.serviceWorker?.getRegistration(); await reg?.update(); } catch (e) {} location.reload(); };
+  } catch (e) { /* offline or blocked: try later */ }
+}
+addEventListener('load', () => setTimeout(() => checkForUpdate(true), 1500));
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdate(false); });
+setInterval(() => checkForUpdate(false), 60 * 60 * 1000);
+// installed app on a computer: an XML file opened with the app
+if ('launchQueue' in window) window.launchQueue.setConsumer(async params => { if (params.files && params.files.length) loadFile(await params.files[0].getFile()); });
+// installed app on Android: a file shared to it (e.g. from OneDrive) arrives via the service worker
+const sharedMatch = location.search.match(/[?&]shared=(\w+)/);
+if (sharedMatch && 'caches' in window){
+  history.replaceState(null, '', location.pathname);
+  caches.open('icuho-shared').then(async c => {
+    const r = await c.match('shared-file');
+    if (r){ const name = decodeURIComponent(r.headers.get('X-Name') || 'shared.xml'); const b = await r.blob(); await c.delete('shared-file'); loadFile(new File([b], name, {lastModified: +(r.headers.get('X-Modified') || Date.now())})); }
+    else toast("The shared item didn't include the file itself. Share the XML file from OneDrive or Files, or use Open export.", 6000);
+  }).catch(() => toast('The shared file could not be opened. Use Open export instead.', 6000));
+}
+
+render();
+// inside claude.ai, open on the example so the page shows what it does
+if (window.claude) load(demoXml('Worcester Royal Hospital ICU'), new Date(Date.now() - 100 * 60000), true);
+})();
+</script>
+
+</body>
+</html>
