@@ -20,8 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      # a unique name per attempt, so re-running a workflow can't leave two packages with the same name
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
+          name: github-pages-${{ github.run_attempt }}
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
