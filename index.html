@@ -133,6 +133,8 @@ a.btn{text-decoration:none;display:inline-block}
 .c1{--pc:var(--p1)} .c2{--pc:var(--p2)} .c3{--pc:var(--p3)} .c4{--pc:var(--p4)} .c5{--pc:var(--p5)}
 .bed.c1{--pc:var(--p1)} .bed.c2{--pc:var(--p2)} .bed.c3{--pc:var(--p3)} .bed.c4{--pc:var(--p4)} .bed.c5{--pc:var(--p5)}
 .head{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:flex-start;padding:9px 12px;background:color-mix(in srgb,var(--pc) var(--tint),var(--surface));border-bottom:2px solid var(--pc)}
+.numcol{display:grid;justify-items:center;gap:4px;flex:none}
+.sex{display:block;color:var(--pc)}
 .num{font:700 15px var(--font-data);color:var(--surface);background:var(--pc);border-radius:5px;padding:2px 8px;white-space:nowrap}
 .who{flex:1 1 260px;min-width:0;display:grid;gap:1px}
 .name{font-weight:700;font-size:16px;color:color-mix(in srgb,var(--pc) 70%,var(--ink))}
@@ -217,7 +219,7 @@ body.compact .full-only{display:none}
   <div class="bar-inner">
     <div class="brand">
       <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="1.5" width="16" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 5.5v9M5.5 10h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      ICU Handover <span class="ver">v6 Oct 2026f</span>
+      ICU Handover <span class="ver">v6 Oct 2026g</span>
     </div>
     <span class="age" id="age" hidden></span>
     <div class="actions">
@@ -575,6 +577,15 @@ function renderGeneral(){
 }
 
 // "12/03/1950 00:00:00  76Y" or "14/03/1951 (75y) F": date as it is, age and sex in bold
+// sex from the age code on the DOB line, e.g. "76F" or "58M"
+function sexOf(t){ const m = String(t || '').match(/\d+\s*([MF])\b/i); return m ? m[1].toUpperCase() : null; }
+function sexIcon(t){
+  const s = sexOf(t); if (!s) return '';
+  const f = '<circle cx="10" cy="7.5" r="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 12.5v6.5M7 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>';
+  const m = '<circle cx="8" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11.6 8.4 17.5 2.5M12.5 2.5h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+  const label = s === 'F' ? 'Female' : 'Male';
+  return `<svg class="sex" width="20" height="20" viewBox="0 0 20 21" role="img" aria-label="${label}"><title>${label}</title>${s === 'F' ? f : m}</svg>`;
+}
 function dobHtml(t){
   t = String(t || '');
   const m = t.match(/^(\s*\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)(.*)$/);
@@ -617,7 +628,7 @@ function cardHtml(p, i){
   const note = notes[p.key];
   return `<article class="pt c${i % 6}" id="pt-${i}" data-key="${p.key}">
     <header class="head">
-      <span class="num">${esc(p.bed || 'Bed ?')}</span>
+      <div class="numcol"><span class="num">${esc(p.bed || 'Bed ?')}</span>${sexIcon(p.dobLine)}</div>
       <div class="who">
         <div class="name">${esc(p.name) || '<span class="none">No name</span>'}</div>
         <div class="sub">${dobHtml(p.dobLine)}</div>
@@ -918,27 +929,27 @@ function toast(msg, ms = 2600){ const t = $('#toast'); t.textContent = msg; t.cl
 const N = '\n';
 const DEMO = [
   {bedLabel:'BED 1',
-   Textbox14:['TEST, Margaret','14/03/1951 (75y) F','H0000001','NHS: 999 000 0101','Adm:','01/10/2026 03:40:00 (D4.6)','14/03/1951 (75y) F','Cons: DR A EXAMPLE','Not for CPR',' Not for CPR',' For NIV, not for intubation'].join(N),
+   Textbox14:['TEST, Margaret','14/03/1951 00:00:00  75F','H0000001','NHS: 999 000 0101','Adm:','01/10/2026 03:40:00 (D4.6)','14/03/1951 00:00:00  75F','Cons: DR A EXAMPLE','Not for CPR',' Not for CPR',' For NIV, not for intubation'].join(N),
    Textbox20:['RFA: Type 2 respiratory failure','','Working Dx: Infective exacerbation of COPD, right lower lobe CAP','','Timeline: 01/10/26: Admitted from ED on NIV, pH 7.21, pCO2 9.8','02/10/26: Improving gases, NIV breaks for meals. TEP discussed with daughter: not for intubation','03/10/26: NIV overnight only, 2L NC by day','04/10/26: Mobilised with physio, eating well','','Micro: 01/10/26: Co-amoxiclav and clarithromycin started','03/10/26: Sputum: H. influenzae, sensitive to co-amoxiclav. Clarithromycin stopped'].join(N),
    Textbox18:['PMH:','COPD (FEV1 38%), home O2 2L','HTN','T2DM (diet controlled)','PSH:','Right THR 2018','','Allergies: Has allergies - Penicillin? (rash as child, tolerated co-amoxiclav)','','A: Nasal cannula (28 % O2)','Mode NIV ST overnight only',''].join(N),
    Textbox10:['Key Issues:','COPD exacerbation, NIV dependent overnight. Not for intubation (TEP in notes). Clarify penicillin allergy history','Jobs:','Repeat VBG 18:00 off NIV. Respiratory team review re: home NIV assessment. Step down if stable off NIV tonight'].join(N)},
   {bedLabel:'BED 2',
-   Textbox14:['SAMPLE, John','22/08/1963 (63y) M','H0000002','NHS: 999 000 0202','Adm:','28/09/2026 22:15:00 (D7.8)','22/08/1963 (63y) M','Cons: DR B SPECIMEN',' Full escalation'].join(N),
+   Textbox14:['SAMPLE, John','22/08/1963 00:00:00  63M','H0000002','NHS: 999 000 0202','Adm:','28/09/2026 22:15:00 (D7.8)','22/08/1963 00:00:00  63M','Cons: DR B SPECIMEN',' Full escalation'].join(N),
    Textbox20:['RFA: Septic shock, faecal peritonitis','','Working Dx: Perforated sigmoid diverticulitis, post Hartmann\'s procedure','','Timeline: 28/09/26: Emergency laparotomy, Hartmann\'s. Returned ventilated on noradrenaline','29/09/26: Vasopressin added. AKI stage 3, oliguric','29/09/26: CVVHDF started via R femoral vascath','30/09/26: Noradrenaline weaning, lactate 1.4','01/10/26: Stoma dusky at edges: reviewed by surgeons, for observation','02/10/26: SAT failed, agitated. Propofol restarted','03/10/26: Sedation hold, obeying commands. CPAP/PS trial','04/10/26: Off vasopressin. Filter clotted x2, citrate anticoagulation started','05/10/26: NG feed at target rate'].join(N),
    Textbox18:['PMH:','Diverticular disease','Hypercholesterolaemia','Ex smoker 30 pack years','PSH:','Laparoscopic cholecystectomy 2015','','A: Endotracheal tube subglottic suction (40 % O2)','Mode CPAP /PS /ATC','C: Noradrenaline (0.08 mcg/kg/min)','R: CVVHDF, citrate, 25 ml/kg/hr, neutral balance','Feed: Peptamen (65 ml/hr) '].join(N),
    Textbox10:['Key Issues:','Septic shock improving, still on low-dose noradrenaline. AKI on CVVHDF, no urine output. Stoma viability being watched by surgical team','Jobs:','Chase peritoneal fluid sensitivities. Surgical review of stoma this evening. SBT tomorrow if FiO2 below 40%. Check citrate ratio (post-filter Ca) at 22:00'].join(N)},
   {bedLabel:'BED 3',
-   Textbox14:['DEMO, Priya','03/11/2002 (23y) F','H0000003','NHS: 999 000 0303','Adm:','04/10/2026 19:05:00 (D0.9)','03/11/2002 (23y) F','Cons: DR C PLACEHOLDER',' Full escalation, for CPR'].join(N),
+   Textbox14:['DEMO, Priya','03/11/2002 00:00:00  23F','H0000003','NHS: 999 000 0303','Adm:','04/10/2026 19:05:00 (D0.9)','03/11/2002 00:00:00  23F','Cons: DR C PLACEHOLDER',' Full escalation, for CPR'].join(N),
    Textbox20:['RFA: Diabetic ketoacidosis','','Working Dx: Severe DKA (pH 6.95, ketones 6.8), precipitant likely missed insulin doses','','Timeline: 04/10/26: Admitted from ED. FRIII and fluids per DKA protocol. K+ 3.2, replaced','05/10/26 06:00: Ketones 0.4, pH 7.34. Eating and drinking','05/10/26: Back on basal-bolus insulin, FRIII off at 12:00','','Micro: Nil'].join(N),
    Textbox18:['PMH:','T1DM since age 9, on MDI insulin','Anxiety','PSH:','Nil','','Allergies: No Known Allergies','','A: Self ventilating (21 % O2)',''].join(N),
    Textbox10:['Key Issues:','DKA resolved. Wardable','Jobs:','Diabetes specialist nurse review before step-down. Ward bed requested on bed management system'].join(N)},
   {bedLabel:'BED 4',
-   Textbox14:['PLACEHOLDER, Tom','09/06/1988 (38y) M','H0000004','NHS: 999 000 0404','Adm:','02/10/2026 23:50:00 (D2.7)','09/06/1988 (38y) M','Cons: DR B SPECIMEN',' Full escalation'].join(N),
+   Textbox14:['PLACEHOLDER, Tom','09/06/1988 00:00:00  38M','H0000004','NHS: 999 000 0404','Adm:','02/10/2026 23:50:00 (D2.7)','09/06/1988 00:00:00  38M','Cons: DR B SPECIMEN',' Full escalation'].join(N),
    Textbox20:['RFA: Traumatic brain injury, GCS 6 at scene','','Working Dx: Diffuse axonal injury, small right frontal contusion, no surgical lesion','','Timeline: 02/10/26: Cyclist vs car. Intubated at scene. CT: DAI, R frontal contusion. Neurosurgery: not for intervention, ICP bolt inserted','03/10/26: ICP 18-22, hypertonic saline x2, CPP 65','04/10/26: ICP settled below 20. Repeat CT stable','05/10/26: Seizure-like activity on sedation hold, levetiracetam started, EEG requested','','Micro: Nil'].join(N),
    Textbox18:['PMH:','Nil','PSH:','ORIF left wrist 2012','','Allergies: No Known Allergies','','A: Endotracheal tube subglottic suction (35 % O2)','Mode VC-SIMV /PS','C: Noradrenaline (0.05 mcg/kg/min) for CPP','Feed: Nutrison Protein Plus (45 ml/hr) '].join(N),
    Textbox10:['Trial: GenOMICC Arm Details: Sample taken','Key Issues:','TBI with ICP monitoring. CPP target above 60. Na target 145-155','Jobs:','EEG tomorrow morning. Na 6-hourly. Discuss with neurosurgery re: removing bolt. Family meeting Wed 14:00'].join(N)},
   {bedLabel:'BED 6',
-   Textbox14:['FICTION, Eileen','30/01/1940 (86y) F','H0000006','NHS: 999 000 0606','Adm:','03/10/2026 16:30:00 (D2.0)','30/01/1940 (86y) F','Cons: DR A EXAMPLE','Not for CPR',' Not for intubation or RRT, ward-based ceiling after this admission'].join(N),
+   Textbox14:['FICTION, Eileen','30/01/1940 00:00:00  86F','H0000006','NHS: 999 000 0606','Adm:','03/10/2026 16:30:00 (D2.0)','30/01/1940 00:00:00  86F','Cons: DR A EXAMPLE','Not for CPR',' Not for intubation or RRT, ward-based ceiling after this admission'].join(N),
    Textbox20:['RFA: Post-operative monitoring after emergency laparotomy','','Working Dx: Small bowel obstruction from adhesions, adhesiolysis, no resection','','Timeline: 03/10/26: Laparotomy, adhesiolysis. Extubated in theatre','04/10/26: Delirious overnight. Haloperidol 0.5 mg x1','05/10/26: Settled. NG out, sips','','Micro: 03/10/26: Prophylactic cefuroxime and metronidazole, 24 h only'].join(N),
    Textbox18:['PMH:','Atrial fibrillation (apixaban, held)','CKD 3b','Mild cognitive impairment','PSH:','Two previous laparotomies (1975, 1992)','','Allergies: Has allergies - Morphine (hallucinations); Trimethoprim (rash)','','A: Nasal cannula (24 % O2)',''].join(N),
    Textbox10:['Key Issues:','Post-op delirium, improving. Apixaban held since surgery','Jobs:','Surgical team to decide when apixaban restarts. Step down to surgical ward tomorrow'].join(N)}
