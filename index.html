@@ -223,7 +223,7 @@ body.compact .full-only{display:none}
   <div class="bar-inner">
     <div class="brand">
       <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="1.5" width="16" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 5.5v9M5.5 10h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      ICU Handover <span class="ver">v6 Oct 2026k</span>
+      ICU Handover <span class="ver">v6 Oct 2026l</span>
     </div>
     <span class="age" id="age" hidden></span>
     <div class="actions">
@@ -247,6 +247,7 @@ body.compact .full-only{display:none}
       <div><b>Use it on a trust PC or in Citrix</b><br><span class="sub">Download a copy, save it to the M: drive and open it in Edge. The copy works without the internet and can remember the handover folder.</span></div>
       <button class="btn primary" id="b-getcopy" type="button">Download ICU Handover.html</button>
       <a class="btn primary" id="a-getcopy" href="index.html" download="ICU Handover.html" hidden>Download for offline use</a>
+      <button class="btn primary" id="b-install" type="button" hidden>Install as an app</button>
     </div>
     <div class="folder" id="folder" hidden>
       <div class="folder-head"><b>Handover folder</b> <span id="folder-name" class="sub"></span></div>
@@ -1096,6 +1097,14 @@ async function checkForUpdate(force){
 addEventListener('load', () => setTimeout(() => checkForUpdate(true), 1500));
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdate(false); });
 setInterval(() => checkForUpdate(false), 60 * 60 * 1000);
+// install button: shown when the browser offers to install (Chrome/Edge/Android); iPhone uses Share → Add to Home Screen
+let installPrompt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; $('#b-install').hidden = false; $('#getcopy').hidden = false; });
+$('#b-install').onclick = async () => { if (!installPrompt) return; installPrompt.prompt(); await installPrompt.userChoice.catch(() => {}); installPrompt = null; $('#b-install').hidden = true; };
+addEventListener('appinstalled', () => { $('#b-install').hidden = true; toast('Installed. Open ICU Handover from its own icon.', 4000); });
+// strip the ?source=app marker the installed app opens with
+if (/[?&]source=app\b/.test(location.search)) history.replaceState(null, '', location.pathname);
+
 // installed app on a computer: an XML file opened with the app
 if ('launchQueue' in window) window.launchQueue.setConsumer(async params => { if (params.files && params.files.length) loadFile(await params.files[0].getFile()); });
 // installed app on Android: a file shared to it (e.g. from OneDrive) arrives via the service worker

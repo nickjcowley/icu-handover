@@ -2,7 +2,7 @@
 // Keeps an offline copy of the app (network first, so updates arrive straight away)
 // and receives an XML export shared to the installed app on Android. Patient data is never cached:
 // a shared file is held only until the app picks it up, then deleted.
-const CACHE = 'icuho-app-v1';
+const CACHE = 'icuho-app-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
