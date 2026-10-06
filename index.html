@@ -167,9 +167,10 @@ a.btn{text-decoration:none;display:inline-block}
 .kv dd{margin:0;overflow-wrap:anywhere}
 .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 16px}
 @media (max-width:520px){ .two{grid-template-columns:minmax(0,1fr)} }
-.tl{list-style:none;margin:0;padding:0;display:grid;gap:1px;font-size:12.5px;line-height:1.3}
+.agesex{color:var(--ink);font-weight:700}
+.tl{list-style:none;margin:0;padding:0;display:grid;gap:1px;font-size:14px;line-height:1.3}
 .tl li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px;overflow-wrap:anywhere}
-.tl .d{font:600 11px/1.3 var(--font-data);color:var(--muted);padding-top:1px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tl .d{font:600 12px/1.35 var(--font-data);color:var(--muted);padding-top:1px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .tl li.newest .t{font-weight:600}
 details.more summary{cursor:pointer;color:var(--accent);font-size:12.5px;margin-top:4px;list-style:none}
 details.more summary::-webkit-details-marker{display:none}
@@ -216,7 +217,7 @@ body.compact .full-only{display:none}
   <div class="bar-inner">
     <div class="brand">
       <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="1.5" width="16" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 5.5v9M5.5 10h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      ICU Handover <span class="ver">v6 Oct 2026e</span>
+      ICU Handover <span class="ver">v6 Oct 2026f</span>
     </div>
     <span class="age" id="age" hidden></span>
     <div class="actions">
@@ -573,6 +574,13 @@ function renderGeneral(){
   $('#general').hidden = false;
 }
 
+// "12/03/1950 00:00:00  76Y" or "14/03/1951 (75y) F": date as it is, age and sex in bold
+function dobHtml(t){
+  t = String(t || '');
+  const m = t.match(/^(\s*\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)(.*)$/);
+  return m && m[2].trim() ? esc(m[1]) + ' <b class="agesex">' + esc(m[2].trim()) + '</b>' : esc(t);
+}
+
 // ---------- rendering ----------
 function ageLabel(){
   const el = $('#age'); if (!exportTime){ el.hidden = false; el.className = 'age warn'; el.textContent = 'Export time unknown'; $('#miniage').className = 'mini-age warn'; $('#miniage').textContent = 'Export time unknown'; return; }
@@ -612,8 +620,8 @@ function cardHtml(p, i){
       <span class="num">${esc(p.bed || 'Bed ?')}</span>
       <div class="who">
         <div class="name">${esc(p.name) || '<span class="none">No name</span>'}</div>
-        <div class="sub">${esc(p.dobLine)}</div>
-        <div class="ids">${esc(p.hosp)}${p.nhs ? ' · NHS ' + esc(p.nhs) : ''}</div>
+        <div class="sub">${dobHtml(p.dobLine)}</div>
+        <div class="ids">${esc(p.hosp.replace(/^#\s*/, ''))}${p.nhs ? ' · NHS ' + esc(p.nhs) : ''}</div>
         <div class="sub">${p.adm ? 'Admitted ' + esc(p.adm.replace(LOS_RE, '').replace(/(\d{1,2}:\d{2}):\d{2}/, '$1').trim()) + (icuDay(p) != null ? ` · <b class="day" title="${LOS_RE.test(p.adm) ? 'Length of stay from ICCA, as at the export' : 'Calendar days since admission (admission day = day 0)'}">ICU day ${dayText(p)}</b>` : '') : ''}${p.cons ? (p.adm ? ' · ' : '') + 'Cons ' + esc(p.cons) : ''}</div>
       </div>
       <div class="esc">${p.escalation.map(e => `<span class="pill ${pill}">${esc(e)}</span>`).join('') || '<span class="pill warn">Escalation not recorded</span>'}</div>
@@ -671,7 +679,7 @@ function render(){
   const offMap = patients.map((p, i) => i).filter(i => !unitBeds.includes(bedNo(patients[i])));
   const rev = a => U.rightToLeft ? [...a].reverse() : a; // chips are laid out left to right on screen
   const bedHtml = n => byBed.has(n) ? byBed.get(n).map(i => chip(patients[i], i)).join('') : `<span class="bed empty" aria-label="Bed ${n} empty">${n}<span aria-hidden="true">&nbsp;</span></span>`;
-  const CAP = {side: 'Side room', pod: 'Pod', open: ''};
+  const CAP = {side: 'SR', pod: 'Pod', open: ''};
   const grpHtml = g => `<div class="grp ${g.kind}"><div class="grp-beds">${rev(g.beds).map(bedHtml).join('')}</div><div class="cap">${CAP[g.kind]}</div></div>`;
   const mapHtml = rev(U.groups).map(g => g.below ? `<div class="stack">${grpHtml(g)}${grpHtml(g.below)}</div>` : grpHtml(g)).join('');
   const offSorted = offMap.sort((a, b) => (bedNo(patients[a]) ?? 99) - (bedNo(patients[b]) ?? 99));
