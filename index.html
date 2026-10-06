@@ -216,7 +216,7 @@ body.compact .full-only{display:none}
   <div class="bar-inner">
     <div class="brand">
       <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="1.5" width="16" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 5.5v9M5.5 10h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      ICU Handover <span class="ver">v6 Oct 2026d</span>
+      ICU Handover <span class="ver">v6 Oct 2026e</span>
     </div>
     <span class="age" id="age" hidden></span>
     <div class="actions">
@@ -670,7 +670,7 @@ function render(){
   const byBed = new Map(); patients.forEach((p, i) => { const n = bedNo(p); if (n != null && unitBeds.includes(n)){ if (!byBed.has(n)) byBed.set(n, []); byBed.get(n).push(i); } });
   const offMap = patients.map((p, i) => i).filter(i => !unitBeds.includes(bedNo(patients[i])));
   const rev = a => U.rightToLeft ? [...a].reverse() : a; // chips are laid out left to right on screen
-  const bedHtml = n => byBed.has(n) ? byBed.get(n).map(i => chip(patients[i], i)).join('') : `<span class="bed empty" aria-label="Bed ${n} empty">${n}<span>empty</span></span>`;
+  const bedHtml = n => byBed.has(n) ? byBed.get(n).map(i => chip(patients[i], i)).join('') : `<span class="bed empty" aria-label="Bed ${n} empty">${n}<span aria-hidden="true">&nbsp;</span></span>`;
   const CAP = {side: 'Side room', pod: 'Pod', open: ''};
   const grpHtml = g => `<div class="grp ${g.kind}"><div class="grp-beds">${rev(g.beds).map(bedHtml).join('')}</div><div class="cap">${CAP[g.kind]}</div></div>`;
   const mapHtml = rev(U.groups).map(g => g.below ? `<div class="stack">${grpHtml(g)}${grpHtml(g.below)}</div>` : grpHtml(g)).join('');
