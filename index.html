@@ -185,6 +185,7 @@ body.compact .full-only{display:none}
 
 .outliers{margin-top:8px;background:var(--surface);border:1px solid var(--warn);border-left:7px solid var(--warn);border-radius:10px;padding:10px 12px;display:grid;gap:6px}
 .outliers h2{font-size:13px;margin:0;text-transform:uppercase;letter-spacing:.06em;color:var(--warn)}
+.repother{border-color:var(--line);border-left-color:var(--accent)} .repother h2{color:var(--accent)}
 .outliers .txt + .txt{border-top:1px solid var(--line);padding-top:6px}
 .summary a{color:var(--warn);font-weight:600}
 .general{margin-top:8px;background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;display:grid;gap:6px}
@@ -215,7 +216,7 @@ body.compact .full-only{display:none}
   <div class="bar-inner">
     <div class="brand">
       <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="1.5" width="16" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 5.5v9M5.5 10h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      ICU Handover <span class="ver">v6 Oct 2026b</span>
+      ICU Handover <span class="ver">v6 Oct 2026c</span>
     </div>
     <span class="age" id="age" hidden></span>
     <div class="actions">
@@ -278,6 +279,10 @@ body.compact .full-only{display:none}
     <p class="summary" id="summary"></p>
     <div class="pin" id="pin"><div class="mini-age" id="miniage"></div><nav class="beds" id="beds" aria-label="Beds"></nav></div>
     <section id="cards"></section>
+    <section class="outliers repother" id="repother" hidden>
+      <h2>Other report notes</h2>
+      <div id="repother-body"></div>
+    </section>
     <section class="outliers" id="outliers" hidden>
       <h2>Out and about</h2>
       <div id="outliers-body"></div>
@@ -328,6 +333,7 @@ function sections(text, labels){
     const m = line.match(re);
     if (m){ cur = labels.find(l => l.toLowerCase() === m[1].toLowerCase()); out[cur] = (out[cur] ? out[cur] + '\n' : '') + m[2]; }
     else if (cur) out[cur] += '\n' + line;
+    else if (line.trim()) out._pre = (out._pre ? out._pre + '\n' : '') + line; // text before the first heading
   }
   for (const k in out) out[k] = trimLines(out[k]);
   return out;
@@ -365,7 +371,7 @@ function parseHistory(text){
     if (m) support.push({k: m[1] || m[2] || m[3] || m[4], v: m[5].trim()});
     else if (support.length) support[support.length - 1].v += ' ' + l.trim();
   }
-  return {pmh: s.PMH || '', psh: s.PSH || '', allergies: s.Allergies ?? null, support};
+  return {pmh: s.PMH || '', psh: s.PSH || '', allergies: s.Allergies ?? null, support, pre: s._pre || ''};
 }
 // timeline / micro: one entry per line, "date: text"
 function entries(text){
@@ -386,9 +392,11 @@ function parsePatient(attrs){
   const hist = parseHistory(box.history);
   const iss = sections(box.issues, ['Trial', 'Key Issues', 'Jobs']);
   let trial = (iss.Trial || '').replace(/\s*Arm Details:\s*$/i, '').replace(/\s*Arm Details:\s*/i, ' · ').trim();
+  // anything the reader doesn't recognise is shown under "Other", never dropped
+  const extra = [st._pre, iss._pre, hist.pre, ...box.other.filter(v => v !== who.name)].filter(t => t && t.trim()).map(trimLines);
   return {bed: attrs.bedLabel || '', ...who, rfa: st.RFA || '', dx: st['Working Dx'] || '',
     timeline: entries(st.Timeline || ''), micro: entries(st.Micro || ''), ...hist,
-    trial, issues: iss['Key Issues'] || '', jobs: iss.Jobs || ''};
+    trial, issues: iss['Key Issues'] || '', jobs: iss.Jobs || '', extra};
 }
 function parseContacts(s){
   s = norm(s).trim(); if (!s) return {pairs: [], email: ''};
@@ -456,7 +464,7 @@ function mergeLoose(els){
 /*PARSE-END*/
 
 // ---------- state ----------
-let patients = [], contacts = {pairs: [], email: ''}, outliers = [], exportTime = null, isDemo = false;
+let patients = [], contacts = {pairs: [], email: ''}, outliers = [], reportOther = [], exportTime = null, isDemo = false;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -497,7 +505,15 @@ function readXml(text){
   const outs = [];
   for (const e of els) for (const [n, v] of Object.entries(e.attrs))
     if (/^(outliers?|out.?and.?about)$/i.test(n) && norm(v).trim() && !outs.includes(trimLines(v))) outs.push(trimLines(v));
-  return {ps, ct, stamp, labels, outs, loose: !!err};
+  const reportOther = [];
+  for (const e of els){
+    if (/^(Details|Report)$/.test(e.name)) continue;
+    for (const [n, v] of Object.entries(e.attrs)){
+      if (/^(xmlns|xsi:)|^(Contacts|outliers?|out.?and.?about|bedLabel)$/i.test(n) || /export|execution|runtime|generated/i.test(n)) continue;
+      if (norm(v).trim() && !reportOther.includes(trimLines(v))) reportOther.push(trimLines(v));
+    }
+  }
+  return {ps, ct, stamp, labels, outs, reportOther, loose: !!err};
 }
 function parseStamp(s){
   let m = String(s).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/); // 05/10/2026 17:24 (UK)
@@ -608,6 +624,7 @@ function cardHtml(p, i){
         <div class="sec"><h3>Diagnosis</h3>
           <dl class="kv"><dt>Working Dx</dt><dd>${esc(p.dx) || '<span class="none">—</span>'}</dd><dt>Reason for admission</dt><dd>${esc(p.rfa) || '<span class="none">—</span>'}</dd></dl>
         </div>
+        ${p.extra && p.extra.length ? `<div class="sec"><h3>Other</h3>${p.extra.map(t => `<div class="txt">${esc(t)}</div>`).join('')}</div>` : ''}
         <div class="sec notes"><h3><label for="note-${i}">My notes</label></h3>
           <textarea id="note-${i}" data-note="${i}" placeholder="Personal reminders for this shift. Not clinical documentation.">${esc(note ? note.t : '')}</textarea>
           <div class="state" data-state="${i}">${noteState(note)}</div>
@@ -659,6 +676,8 @@ function render(){
     requestAnimationFrame(() => { const b = $('#beds'); b.scrollLeft = U.rightToLeft ? b.scrollWidth : 0; }); // start at bed 1
   $('#cards').innerHTML = patients.map(cardHtml).join('');
   renderGeneral();
+  $('#repother').hidden = !reportOther.length;
+  $('#repother-body').innerHTML = reportOther.map(t => `<div class="txt">${esc(t)}</div>`).join('');
   $('#outliers').hidden = !outliers.length;
   $('#outliers-body').innerHTML = outliers.map(t => `<div class="txt">${esc(t)}</div>`).join('');
   const ct = $('#contacts');
@@ -873,8 +892,8 @@ $('#diag-copy').onclick = async () => {
 async function load(text, fileTime, demo, fileName = ''){
   if (checkNext){ checkNext = false; showLayout(text); return; }
   try {
-    const {ps, ct, stamp, labels, outs, loose} = readXml(text);
-    isDemo = demo; patients = ps; lastText = demo ? '' : text; contacts = ct; outliers = outs; exportTime = stamp || fileTime || null;
+    const {ps, ct, stamp, labels, outs, reportOther: ro, loose} = readXml(text);
+    isDemo = demo; patients = ps; lastText = demo ? '' : text; contacts = ct; outliers = outs; reportOther = ro; exportTime = stamp || fileTime || null;
     unitDetected = detectUnit([...labels, fileName.replace(/\.xml$/i, '')], ps); // the file name counts too, e.g. "WRH Handover.xml"
     await keyPatients(); tidyNotes(); render(); scrollTo(0, 0);
     if (!demo) toast(`Loaded ${ps.length} patient${ps.length === 1 ? '' : 's'}` + (loose ? ' (read in tolerant mode: check the cards look right)' : ''), loose ? 6000 : 2600);
