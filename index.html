@@ -183,6 +183,10 @@ details.more .tl{margin-top:4px;opacity:.85}
 
 body.compact .full-only{display:none}
 
+.outliers{margin-top:8px;background:var(--surface);border:1px solid var(--warn);border-left:7px solid var(--warn);border-radius:10px;padding:10px 12px;display:grid;gap:6px}
+.outliers h2{font-size:13px;margin:0;text-transform:uppercase;letter-spacing:.06em;color:var(--warn)}
+.outliers .txt + .txt{border-top:1px solid var(--line);padding-top:6px}
+.summary a{color:var(--warn);font-weight:600}
 .general{margin-top:8px;background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;display:grid;gap:6px}
 .general-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .general h2{font-size:13px;margin:0;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
@@ -211,7 +215,7 @@ body.compact .full-only{display:none}
   <div class="bar-inner">
     <div class="brand">
       <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="1.5" width="16" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 5.5v9M5.5 10h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      ICU Handover <span class="ver">v6 Oct 2026a</span>
+      ICU Handover <span class="ver">v6 Oct 2026b</span>
     </div>
     <span class="age" id="age" hidden></span>
     <div class="actions">
@@ -274,6 +278,10 @@ body.compact .full-only{display:none}
     <p class="summary" id="summary"></p>
     <div class="pin" id="pin"><div class="mini-age" id="miniage"></div><nav class="beds" id="beds" aria-label="Beds"></nav></div>
     <section id="cards"></section>
+    <section class="outliers" id="outliers" hidden>
+      <h2>Out and about</h2>
+      <div id="outliers-body"></div>
+    </section>
     <section class="general notes" id="general" hidden>
       <div class="general-head"><h2><label for="general-note">General notes</label></h2><button class="btn small" id="general-clear" type="button">Clear</button></div>
       <p class="sub">Patients under review, outreach referrals, expected admissions: anything not tied to one bed.</p>
@@ -448,7 +456,7 @@ function mergeLoose(els){
 /*PARSE-END*/
 
 // ---------- state ----------
-let patients = [], contacts = {pairs: [], email: ''}, exportTime = null, isDemo = false;
+let patients = [], contacts = {pairs: [], email: ''}, outliers = [], exportTime = null, isDemo = false;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -485,7 +493,11 @@ function readXml(text){
   // unit clues: report-level text boxes (anything outside the patient rows and contacts) and the bed labels
   const labels = ps.map(p => p.bed);
   for (const e of els){ if (/^Details/.test(e.name)) continue; for (const [n, v] of Object.entries(e.attrs)) if (!/^(xmlns|xsi:)/.test(n)) labels.push(v); }
-  return {ps, ct, stamp, labels, loose: !!err};
+  // "out and about": the report's outlier box (patients ICU is following outside the unit). Usually empty.
+  const outs = [];
+  for (const e of els) for (const [n, v] of Object.entries(e.attrs))
+    if (/^(outliers?|out.?and.?about)$/i.test(n) && norm(v).trim() && !outs.includes(trimLines(v))) outs.push(trimLines(v));
+  return {ps, ct, stamp, labels, outs, loose: !!err};
 }
 function parseStamp(s){
   let m = String(s).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/); // 05/10/2026 17:24 (UK)
@@ -627,7 +639,7 @@ function render(){
   ageLabel();
   const fl = patients.map(flags);
   const cnt = (fn, l) => { const n = fl.filter(fn).length; return n ? ` · <b>${n}</b> ${l}` : ''; };
-  $('#summary').innerHTML = `<b>${patients.length}</b> patient${patients.length === 1 ? '' : 's'}` + cnt(f => f.vent, 'ventilated') + cnt(f => f.pressors, 'on vasoactive drugs') + cnt(f => f.dnr, 'not for CPR');
+  $('#summary').innerHTML = `<b>${patients.length}</b> patient${patients.length === 1 ? '' : 's'}` + cnt(f => f.vent, 'ventilated') + cnt(f => f.pressors, 'on vasoactive drugs') + cnt(f => f.dnr, 'not for CPR') + (outliers.length ? ' · <a href="#outliers">Out and about listed</a>' : '');
   // bed map: every unit bed in floor order, occupied or empty, then any patient whose bed isn't on the map
   const chip = (p, i) => `<button class="bed c${i % 6}${fl[i].dnr ? ' dnr' : ''}${notes[p.key] ? ' note' : ''}" type="button" data-go="${i}" aria-label="Bed ${esc(bedNo(p) ?? p.bed)}, ${esc(p.name)}">${esc(bedNo(p) ?? (String(p.bed).replace(/^(bed|patient)\s*/i, '') || '?'))}<span>${esc(initials(p.name))}${icuDay(p) != null ? `<i class="d">d${dayText(p, true)}</i>` : ''}</span></button>`;
   const un = $('#unitname');
@@ -647,6 +659,8 @@ function render(){
     requestAnimationFrame(() => { const b = $('#beds'); b.scrollLeft = U.rightToLeft ? b.scrollWidth : 0; }); // start at bed 1
   $('#cards').innerHTML = patients.map(cardHtml).join('');
   renderGeneral();
+  $('#outliers').hidden = !outliers.length;
+  $('#outliers-body').innerHTML = outliers.map(t => `<div class="txt">${esc(t)}</div>`).join('');
   const ct = $('#contacts');
   ct.hidden = !contacts.pairs.length && !contacts.email;
   ct.innerHTML = `<h2>Useful numbers</h2><div class="ct">${contacts.pairs.map(([l, n]) => `<div><span>${esc(l)}</span><b>${esc(n)}</b></div>`).join('')}${contacts.email ? `<div class="mail"><span>Unit email</span><b>${esc(contacts.email)}</b></div>` : ''}</div>`;
@@ -859,8 +873,8 @@ $('#diag-copy').onclick = async () => {
 async function load(text, fileTime, demo, fileName = ''){
   if (checkNext){ checkNext = false; showLayout(text); return; }
   try {
-    const {ps, ct, stamp, labels, loose} = readXml(text);
-    isDemo = demo; patients = ps; lastText = demo ? '' : text; contacts = ct; exportTime = stamp || fileTime || null;
+    const {ps, ct, stamp, labels, outs, loose} = readXml(text);
+    isDemo = demo; patients = ps; lastText = demo ? '' : text; contacts = ct; outliers = outs; exportTime = stamp || fileTime || null;
     unitDetected = detectUnit([...labels, fileName.replace(/\.xml$/i, '')], ps); // the file name counts too, e.g. "WRH Handover.xml"
     await keyPatients(); tidyNotes(); render(); scrollTo(0, 0);
     if (!demo) toast(`Loaded ${ps.length} patient${ps.length === 1 ? '' : 's'}` + (loose ? ' (read in tolerant mode: check the cards look right)' : ''), loose ? 6000 : 2600);
@@ -899,13 +913,14 @@ const DEMO = [
    Textbox10:['Key Issues:','Post-op delirium, improving. Apixaban held since surgery','Jobs:','Surgical team to decide when apixaban restarts. Step down to surgical ward tomorrow'].join(N)}
 ];
 const DEMO_CONTACTS = '1st 600 2nd 601 3rd 602 Outreach 650 Pharmacy 61234 Blood Bank 61500 Biochem 61600 Haematology 61700 Unit email: icu.example@nhs.net';
-function demoXml(unit){
+function demoXml(unit, outlier = ''){
   const x = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/\n/g, '&#13;&#10;');
   return `<?xml version="1.0" encoding="utf-8"?><Report xmlns="Handover" Name="Handover" UnitName="${unit}"><Tablix1><Details_Collection>` +
     DEMO.map(d => '<Details ' + Object.entries(d).map(([k, v]) => `${k}="${x(v)}"`).join(' ') + ' />').join('') +
-    `</Details_Collection></Tablix1><Tablix6><Details1_Collection><Details1 outlier="" Contacts="${x(DEMO_CONTACTS)}" /></Details1_Collection></Tablix6></Report>`;
+    `</Details_Collection></Tablix1><Tablix6><Details1_Collection><Details1 outlier="${x(outlier)}" Contacts="${x(DEMO_CONTACTS)}" /></Details1_Collection></Tablix6></Report>`;
 }
-$('#b-demo').onclick = () => load(demoXml('Worcester Royal Hospital ICU'), new Date(Date.now() - 100 * 60000), true);
+const DEMO_OUT = 'Ward 11 bed 4 (EXAMPLE, Ann): stepped down 04/10. On 2L O2, NEWS 3. Review on morning round.\nAvon 2 bed 12 (SPECIMEN, Raj): outreach referral, rising lactate. Review by 10:00.';
+$('#b-demo').onclick = () => load(demoXml('Worcester Royal Hospital ICU', DEMO_OUT), new Date(Date.now() - 100 * 60000), true);
 $('#b-demo-alex').onclick = () => load(demoXml('Alexandra Hospital ITU'), new Date(Date.now() - 100 * 60000), true);
 
 // ---------- handover folder: chosen once, remembered on this computer (Edge/Chrome on a PC or in Citrix) ----------
@@ -1047,7 +1062,7 @@ if (sharedMatch && 'caches' in window){
 
 render();
 // inside claude.ai, open on the example so the page shows what it does
-if (window.claude) load(demoXml('Worcester Royal Hospital ICU'), new Date(Date.now() - 100 * 60000), true);
+if (window.claude) load(demoXml('Worcester Royal Hospital ICU', DEMO_OUT), new Date(Date.now() - 100 * 60000), true);
 })();
 </script>
 
