@@ -214,18 +214,20 @@ body.compact .full-only{display:none}
   .beds{padding-top:4px;padding-bottom:4px}
 }
 </style>
+<script id="theme-early">try { var t = localStorage.getItem('icuho-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}</script>
 
 <div class="bar" id="bar">
   <div class="bar-inner">
     <div class="brand">
       <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="1.5" width="16" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 5.5v9M5.5 10h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      ICU Handover <span class="ver">v6 Oct 2026h</span>
+      ICU Handover <span class="ver">v6 Oct 2026i</span>
     </div>
     <span class="age" id="age" hidden></span>
     <div class="actions">
       <button class="btn" id="b-home" type="button" hidden>⌂ Start page</button>
       <button class="btn" id="b-latest" type="button" hidden title="Load the newest export from the handover folder">⟳ Latest</button>
       <span class="unitname" id="unitname" hidden></span>
+      <button class="btn" id="b-theme" type="button" title="Colours: follow the device, always light, or always dark">Auto</button>
       <button class="btn" id="b-compact" type="button" hidden title="Show only key issues, jobs, support and your notes">Compact</button>
       <button class="btn primary" id="b-open" type="button">Open export…</button>
     </div>
@@ -1103,6 +1105,22 @@ if (sharedMatch && 'caches' in window){
     else toast("The shared item didn't include the file itself. Share the XML file from OneDrive or Files, or use Open export.", 6000);
   }).catch(() => toast('The shared file could not be opened. Use Open export instead.', 6000));
 }
+
+// ---------- colours: Auto (follow the device) / Light / Dark, remembered on this device ----------
+const THEMES = ['auto', 'light', 'dark'];
+const THEME_LABEL = {auto: '◐ Auto', light: '☀ Light', dark: '☾ Dark'};
+function getTheme(){ try { const t = localStorage.getItem('icuho-theme'); return THEMES.includes(t) ? t : 'auto'; } catch (e) { return 'auto'; } }
+function applyTheme(t){
+  if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
+  const b = $('#b-theme'); b.textContent = THEME_LABEL[t];
+  b.setAttribute('aria-label', 'Colours: ' + (t === 'auto' ? 'follow the device' : t) + '. Tap to change.');
+}
+$('#b-theme').onclick = () => {
+  const t = THEMES[(THEMES.indexOf(getTheme()) + 1) % THEMES.length];
+  try { if (t === 'auto') localStorage.removeItem('icuho-theme'); else localStorage.setItem('icuho-theme', t); } catch (e) {}
+  applyTheme(t); toast(t === 'auto' ? 'Colours follow your device' : t === 'light' ? 'Always light' : 'Always dark', 1600);
+};
+applyTheme(getTheme());
 
 render();
 // inside claude.ai, open on the example so the page shows what it does
