@@ -216,7 +216,7 @@ body.compact .full-only{display:none}
   <div class="bar-inner">
     <div class="brand">
       <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="1.5" width="16" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 5.5v9M5.5 10h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      ICU Handover <span class="ver">v6 Oct 2026c</span>
+      ICU Handover <span class="ver">v6 Oct 2026d</span>
     </div>
     <span class="age" id="age" hidden></span>
     <div class="actions">
@@ -504,7 +504,11 @@ function readXml(text){
   // "out and about": the report's outlier box (patients ICU is following outside the unit). Usually empty.
   const outs = [];
   for (const e of els) for (const [n, v] of Object.entries(e.attrs))
-    if (/^(outliers?|out.?and.?about)$/i.test(n) && norm(v).trim() && !outs.includes(trimLines(v))) outs.push(trimLines(v));
+    if (/^(outliers?|out.?and.?about)$/i.test(n)){
+      // drop the report's own "Outlier:" label; the section has its own heading
+      const t = trimLines(norm(v).replace(/^\s*(outliers?|out\s*(?:and|&)\s*about)\s*[:\-]\s*/i, ''));
+      if (t && !outs.includes(t)) outs.push(t);
+    }
   const reportOther = [];
   for (const e of els){
     if (/^(Details|Report)$/.test(e.name)) continue;
