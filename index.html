@@ -183,6 +183,11 @@ details.more .tl{margin-top:4px;opacity:.85}
 
 body.compact .full-only{display:none}
 
+.general{margin-top:8px;background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;display:grid;gap:6px}
+.general-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.general h2{font-size:13px;margin:0;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
+.general .sub{margin:0}
+.general textarea{min-height:110px}
 .contacts{margin-top:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .contacts h2{font-size:13px;margin:0 0 6px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .ct{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 14px}
@@ -206,7 +211,7 @@ body.compact .full-only{display:none}
   <div class="bar-inner">
     <div class="brand">
       <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="1.5" width="16" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 5.5v9M5.5 10h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      ICU Handover <span class="ver">v5 Oct 2026z1</span>
+      ICU Handover <span class="ver">v6 Oct 2026a</span>
     </div>
     <span class="age" id="age" hidden></span>
     <div class="actions">
@@ -269,6 +274,12 @@ body.compact .full-only{display:none}
     <p class="summary" id="summary"></p>
     <div class="pin" id="pin"><div class="mini-age" id="miniage"></div><nav class="beds" id="beds" aria-label="Beds"></nav></div>
     <section id="cards"></section>
+    <section class="general notes" id="general" hidden>
+      <div class="general-head"><h2><label for="general-note">General notes</label></h2><button class="btn small" id="general-clear" type="button">Clear</button></div>
+      <p class="sub">Patients under review, outreach referrals, expected admissions: anything not tied to one bed.</p>
+      <textarea id="general-note" rows="5" placeholder="Personal reminders for this shift. Not clinical documentation."></textarea>
+      <div class="state" id="general-state"></div>
+    </section>
     <section class="contacts" id="contacts" hidden></section>
   </div>
 </main>
@@ -509,11 +520,25 @@ function tidyNotes(){
   const n = loadNotes(); if (n == null){ canStore = false; notes = {}; return; }
   canStore = true; const now = Date.now(); const here = new Set(patients.map(p => p.key)); let removed = 0;
   for (const [k, v] of Object.entries(n)){
-    const gone = !here.has(k) && exportTime && exportTime.getTime() > v.u; // patient no longer in a newer export
+    const gone = !k.startsWith('general:') && !here.has(k) && exportTime && exportTime.getTime() > v.u; // patient no longer in a newer export
     if (now - v.u > MAX_AGE || gone || !String(v.t || '').trim()){ delete n[k]; removed++; }
   }
   if (removed) saveNotes(n);
   notes = n;
+}
+
+// general notes: one per unit on this device, deleted 3 days after the last edit
+const generalKey = () => 'general:' + (unitId() || 'unit');
+function generalState(n){
+  if (!canStore) return 'Notes can’t be kept in this browser (private window or storage blocked). They will be lost when you close it.';
+  if (!n || !String(n.t).trim()) return 'Kept on this device only. Deleted 3 days after your last change.';
+  return 'Saved on this device ' + new Date(n.u).toLocaleString('en-GB', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'}) + '. Deleted 3 days after your last change.';
+}
+function renderGeneral(){
+  const n = notes[generalKey()];
+  const ta = $('#general-note'); if (document.activeElement !== ta) ta.value = n ? n.t : '';
+  $('#general-state').textContent = generalState(n);
+  $('#general').hidden = false;
 }
 
 // ---------- rendering ----------
@@ -621,6 +646,7 @@ function render(){
   $('#beds').innerHTML = U.rightToLeft ? offHtml + mapHtml : mapHtml + offHtml;
     requestAnimationFrame(() => { const b = $('#beds'); b.scrollLeft = U.rightToLeft ? b.scrollWidth : 0; }); // start at bed 1
   $('#cards').innerHTML = patients.map(cardHtml).join('');
+  renderGeneral();
   const ct = $('#contacts');
   ct.hidden = !contacts.pairs.length && !contacts.email;
   ct.innerHTML = `<h2>Useful numbers</h2><div class="ct">${contacts.pairs.map(([l, n]) => `<div><span>${esc(l)}</span><b>${esc(n)}</b></div>`).join('')}${contacts.email ? `<div class="mail"><span>Unit email</span><b>${esc(contacts.email)}</b></div>` : ''}</div>`;
@@ -699,8 +725,25 @@ addEventListener('resize', setBarHeight);
 
 // ---------- events ----------
 let noteT = {};
+let generalT;
+function saveGeneral(text){
+  const n = loadNotes() || {}, k = generalKey();
+  if (text.trim()) n[k] = {t: text, u: Date.now()}; else delete n[k];
+  canStore = saveNotes(n); notes = n;
+  $('#general-state').textContent = generalState(n[k]);
+}
+let clearArmed = null;
+$('#general-clear').onclick = () => {
+  const b = $('#general-clear');
+  if (!$('#general-note').value.trim()) return;
+  if (!clearArmed){ b.textContent = 'Tap again to clear'; clearArmed = setTimeout(() => { b.textContent = 'Clear'; clearArmed = null; }, 3000); return; }
+  clearTimeout(clearArmed); clearArmed = null; b.textContent = 'Clear';
+  $('#general-note').value = ''; saveGeneral(''); toast('General notes cleared');
+};
 document.addEventListener('input', e => {
-  const t = e.target; if (!t.dataset.note) return;
+  const t = e.target;
+  if (t.id === 'general-note'){ clearTimeout(generalT); generalT = setTimeout(() => saveGeneral(t.value), 400); return; }
+  if (!t.dataset.note) return;
   const i = +t.dataset.note, p = patients[i];
   clearTimeout(noteT[i]);
   noteT[i] = setTimeout(() => {
