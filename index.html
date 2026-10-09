@@ -164,10 +164,14 @@ a.btn{text-decoration:none;display:inline-block}
 .ho .notes textarea{min-height:130px;font-size:15px}
 .ho-nav{position:sticky;bottom:0;z-index:3;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0 calc(8px + env(safe-area-inset-bottom,0px));background:var(--bg);margin-top:4px}
 .ho-nav .btn{padding:10px 14px;font-size:15px;min-width:5.5em}
+.btn:disabled{opacity:.4;cursor:default}
 .ho-pos{text-align:center;font-size:13px;color:var(--muted);display:grid;justify-items:center;gap:4px}
 .ho-pos b{color:var(--ink);font-size:14px}
 .bed.cur{outline:3px solid var(--pc);outline-offset:1px}
-body.ho-mode #cards,body.ho-mode #b-compact{display:none!important}
+body.ho-mode #cards,body.ho-mode #b-compact,body.ho-mode #unitinfo-home{display:none!important}
+.ho-unit{--pc:var(--accent)}
+.ho-unit #unitinfo > section:first-child{margin-top:0}
+.ho-unit .ho-sub{font-size:13.5px;color:var(--muted);margin:-4px 0 0}
 /* room display: a shared screen in the handover room */
 body.room #ho{zoom:1.4}
 body.room .summary,body.room #demoflag{display:none!important}
@@ -265,7 +269,7 @@ body.compact .full-only{display:none}
   <div class="bar-inner">
     <div class="brand">
       <img class="brand-img" src="data:image/webp;base64,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" width="26" height="26" alt="">
-      ICU Handover <span class="ver">v9 Oct 2026a</span>
+      ICU Handover <span class="ver">v9 Oct 2026b</span>
     </div>
     <span class="age" id="age" hidden></span>
     <div class="actions">
@@ -337,6 +341,7 @@ body.compact .full-only{display:none}
     <div class="pin" id="pin"><div class="mini-row"><div class="mini-age" id="miniage"></div><span class="mini-btns"><button class="btn icon modebtn" id="b-mode2" type="button"></button><button class="btn icon sizebtn" id="b-size2" type="button"></button><button class="btn icon themebtn" id="b-theme2" type="button"></button></span></div><nav class="beds" id="beds" aria-label="Beds"></nav></div>
     <section id="cards"></section>
     <section id="ho" hidden aria-live="polite"></section>
+    <div id="unitinfo-home"><div id="unitinfo">
     <section class="outliers repother" id="repother" hidden>
       <h2>Other report notes</h2>
       <div id="repother-body"></div>
@@ -352,6 +357,7 @@ body.compact .full-only{display:none}
       <div class="state" id="general-state"></div>
     </section>
     <section class="contacts" id="contacts" hidden></section>
+    </div></div>
   </div>
 </main>
 <div class="newer" id="newer" hidden role="status"><span id="newer-text"></span><span class="row"><button class="btn small" id="newer-load" type="button">Load it</button><button class="btn small" id="newer-x" type="button">Later</button></span></div>
@@ -1231,19 +1237,29 @@ function hoHtml(i){
     <div class="ho-pane" role="tabpanel">${pane}</div>
   </article>`;
 }
+function unitSlideHtml(){
+  return `<article class="ho ho-unit"><header class="ho-head"><div class="who"><div class="name">Unit</div>
+    <p class="ho-sub">Out and about, general notes and useful numbers</p></div></header><div id="ho-unit-slot"></div></article>`;
+}
 function renderHo(){
   const order = hoOrder(); if (!order.length) return;
-  if (hoKey){ const k = order.findIndex(i => patients[i].key === hoKey); if (k >= 0) hoIdx = k; }
-  hoIdx = Math.max(0, Math.min(hoIdx, order.length - 1));
-  const i = order[hoIdx]; hoKey = patients[i].key;
-  $('#ho').innerHTML = hoHtml(i) + `
+  // put the unit sections back in their usual place before redrawing
+  if ($('#unitinfo').parentElement !== $('#unitinfo-home')) $('#unitinfo-home').appendChild($('#unitinfo'));
+  const last = order.length; // index of the Unit page, after the last patient
+  if (hoKey === '__unit') hoIdx = last;
+  else if (hoKey){ const k = order.findIndex(i => patients[i].key === hoKey); if (k >= 0) hoIdx = k; }
+  hoIdx = Math.max(0, Math.min(hoIdx, last));
+  const onUnit = hoIdx === last, i = onUnit ? null : order[hoIdx];
+  hoKey = onUnit ? '__unit' : patients[i].key;
+  $('#ho').innerHTML = (onUnit ? unitSlideHtml() : hoHtml(i)) + `
     <div class="ho-nav">
       <button class="btn" type="button" data-step="-1" ${hoIdx === 0 ? 'disabled' : ''}>‹ Prev</button>
-      <div class="ho-pos"><b>${hoIdx + 1} of ${order.length}</b><button class="btn small${room ? ' on-room' : ''}" type="button" id="b-room" aria-pressed="${room}" title="Large view for a shared screen in the handover room">${room ? 'Leave room display' : 'Room display'}</button></div>
-      <button class="btn" type="button" data-step="1" ${hoIdx === order.length - 1 ? 'disabled' : ''}>Next ›</button>
+      <div class="ho-pos"><b>${onUnit ? 'Unit' : (hoIdx + 1) + ' of ' + order.length}</b><button class="btn small${room ? ' on-room' : ''}" type="button" id="b-room" aria-pressed="${room}" title="Large view for a shared screen in the handover room">${room ? 'Leave room display' : 'Room display'}</button></div>
+      <button class="btn" type="button" data-step="1" ${onUnit ? 'disabled' : ''}>${hoIdx === last - 1 ? 'Unit ›' : 'Next ›'}</button>
     </div>`;
+  if (onUnit) $('#ho-unit-slot').appendChild($('#unitinfo'));
   document.querySelectorAll('.bed.cur').forEach(b => b.classList.remove('cur'));
-  const chipEl = document.querySelector(`.bed[data-go="${i}"]`);
+  const chipEl = onUnit ? null : document.querySelector(`.bed[data-go="${i}"]`);
   if (chipEl){ chipEl.classList.add('cur'); chipEl.scrollIntoView({block: 'nearest', inline: 'nearest'}); }
 }
 function hoGoto(k){
@@ -1264,7 +1280,7 @@ function applyMode(){
   $('#b-mode').textContent = ho ? '☰ List view' : '⇆ Handover view';
   const b2 = $('#b-mode2'); b2.textContent = ho ? '☰' : '⇆';
   [$('#b-mode'), b2].forEach(b => { b.title = ho ? 'Back to the list of all patients' : 'Handover view: one patient per screen, swipe between them'; b.setAttribute('aria-label', b.title); });
-  if (ho) renderHo(); else document.querySelectorAll('.bed.cur').forEach(b => b.classList.remove('cur'));
+  if (ho) renderHo(); else { document.querySelectorAll('.bed.cur').forEach(b => b.classList.remove('cur')); if ($('#unitinfo').parentElement !== $('#unitinfo-home')) $('#unitinfo-home').appendChild($('#unitinfo')); }
   setBarHeight();
 }
 document.querySelectorAll('.modebtn').forEach(b => b.onclick = () => {
@@ -1293,6 +1309,10 @@ $('#ho').addEventListener('click', e => {
   const step = e.target.closest('[data-step]'); if (step){ hoGoto(hoIdx + +step.dataset.step); return; }
   if (e.target.closest('#b-room')) setRoom(!room);
 });
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[href="#outliers"]'); if (!a || mode !== 'handover') return;
+  e.preventDefault(); hoKey = '__unit'; renderHo(); hoScrollTop();
+});
 // swipe left/right between patients (not while typing a note)
 let sx = null, sy = 0;
 $('#ho').addEventListener('touchstart', e => { if (e.target.closest('textarea') || e.touches.length > 1){ sx = null; return; } sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, {passive: true});
@@ -1303,7 +1323,7 @@ $('#ho').addEventListener('touchend', e => {
 // keyboard and presentation clickers: arrows / Page Up / Page Down; Escape leaves room display
 document.addEventListener('keydown', e => {
   if (mode !== 'handover' || !patients.length || e.target.closest('textarea, input, select') || e.altKey || e.ctrlKey || e.metaKey) return;
-  const n = hoOrder().length;
+  const n = hoOrder().length + 1; // patients plus the Unit page
   if (e.key === 'ArrowRight' || e.key === 'PageDown'){ e.preventDefault(); hoGoto(Math.min(n - 1, hoIdx + 1)); }
   else if (e.key === 'ArrowLeft' || e.key === 'PageUp'){ e.preventDefault(); hoGoto(Math.max(0, hoIdx - 1)); }
   else if (e.key === 'Home'){ e.preventDefault(); hoGoto(0); }
