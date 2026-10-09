@@ -103,9 +103,9 @@ a.btn{text-decoration:none;display:inline-block}
 .mini-btns{display:flex;gap:6px}
 .sizebtn{font-weight:700;font-family:var(--font-ui);letter-spacing:-.02em}
 .sizebtn small{font-size:.62em;font-weight:700}
-:root[data-size="s"] :is(.summary,#cards,#repother,#outliers,#general,#contacts){zoom:.9}
-:root[data-size="l"] :is(.summary,#cards,#repother,#outliers,#general,#contacts){zoom:1.15}
-:root[data-size="xl"] :is(.summary,#cards,#repother,#outliers,#general,#contacts){zoom:1.3}
+:root[data-size="s"] :is(.summary,#cards,#ho,#repother,#outliers,#general,#contacts){zoom:.9}
+:root[data-size="l"] :is(.summary,#cards,#ho,#repother,#outliers,#general,#contacts){zoom:1.15}
+:root[data-size="xl"] :is(.summary,#cards,#ho,#repother,#outliers,#general,#contacts){zoom:1.3}
 .mini-row{display:none;align-items:center;justify-content:space-between;gap:8px;padding-top:4px}
 .btn.icon{padding:3px 8px;font-size:16px;line-height:1.2;min-width:34px}
 .mini-age{font-size:11.5px;font-weight:600;color:var(--ok);padding-top:4px}
@@ -141,6 +141,40 @@ a.btn{text-decoration:none;display:inline-block}
 
 /* patient card */
 .pt{--pc:var(--p0);background:color-mix(in srgb,var(--pc) var(--tint-body),var(--surface));border:1px solid color-mix(in srgb,var(--pc) 45%,var(--line));border-left:7px solid var(--pc);border-radius:10px;margin-bottom:18px;overflow:hidden;scroll-margin-top:calc(var(--barh,52px) + var(--bedsh,60px) + 6px)}
+/* ---------- handover mode: one patient per screen ---------- */
+.ho{--pc:var(--p0);background:var(--surface);border:1px solid color-mix(in srgb,var(--pc) 40%,var(--line));border-top:7px solid var(--pc);border-radius:12px;padding:12px 14px 14px;display:grid;gap:10px;font-size:16px;line-height:1.4;min-height:calc(100dvh - var(--barh,52px) - var(--bedsh,60px) - 96px);align-content:start;touch-action:pan-y}
+.ho-head{display:flex;gap:12px;align-items:flex-start}
+.ho .num{font-size:20px;padding:3px 10px}
+.ho .who{display:grid;gap:2px;min-width:0}
+.ho .name{font-size:19px;font-weight:700;color:color-mix(in srgb,var(--pc) 70%,var(--ink))}
+.ho-dx{font-weight:600;overflow-wrap:anywhere}
+.ho .sub{font-size:13.5px}
+.ho-status{font-weight:700;font-size:15px;padding:6px 10px;border-radius:8px;background:var(--surface-2);color:var(--ink)}
+.ho-status.crit{background:var(--crit-soft);color:var(--crit)} .ho-status.warn{background:var(--warn-soft);color:var(--warn)} .ho-status.ok{background:var(--ok-soft);color:var(--ok)}
+.ho .alerts{padding:0}
+.ho-tabs{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--line);scrollbar-width:none}
+.ho-tabs button{flex:none;border:0;background:none;padding:8px 12px;font:600 14px var(--font-ui);color:var(--muted);border-bottom:3px solid transparent;cursor:pointer}
+.ho-tabs button[aria-selected="true"]{color:color-mix(in srgb,var(--pc) 75%,var(--ink));border-bottom-color:var(--pc)}
+.ho-pane{display:grid;gap:12px;min-width:0}
+.ho-pane h3{margin:0 0 3px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--pc)}
+.ho-jobs{background:color-mix(in srgb,var(--pc) 7%,var(--surface));border:1px solid color-mix(in srgb,var(--pc) 30%,var(--line));border-radius:8px;padding:8px 10px}
+.ho-jobs .txt{font-weight:600}
+.ho .kv{grid-template-columns:6.5em minmax(0,1fr);font-size:14.5px}
+.ho .tl{font-size:15px}
+.ho .notes textarea{min-height:130px;font-size:15px}
+.ho-nav{position:sticky;bottom:0;z-index:3;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0 calc(8px + env(safe-area-inset-bottom,0px));background:var(--bg);margin-top:4px}
+.ho-nav .btn{padding:10px 14px;font-size:15px;min-width:5.5em}
+.ho-pos{text-align:center;font-size:13px;color:var(--muted);display:grid;justify-items:center;gap:4px}
+.ho-pos b{color:var(--ink);font-size:14px}
+.bed.cur{outline:3px solid var(--pc);outline-offset:1px}
+body.ho-mode #cards,body.ho-mode #b-compact{display:none!important}
+/* room display: a shared screen in the handover room */
+body.room #ho{zoom:1.4}
+body.room .summary,body.room #demoflag{display:none!important}
+body.room .ho{min-height:calc((100dvh - var(--barh,52px) - var(--bedsh,60px)) / 1.4 - 70px)}
+body.room .ho-tabs [data-tab="notes"],body.room #general,body.room .bed.note::before,body.room .mini-row{display:none!important}
+.btn.on-room{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+@media (max-width:700px){ body.room #ho{zoom:1.15} }
 .c1{--pc:var(--p1)} .c2{--pc:var(--p2)} .c3{--pc:var(--p3)} .c4{--pc:var(--p4)} .c5{--pc:var(--p5)}
 .bed.c1{--pc:var(--p1)} .bed.c2{--pc:var(--p2)} .bed.c3{--pc:var(--p3)} .bed.c4{--pc:var(--p4)} .bed.c5{--pc:var(--p5)}
 .head{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:flex-start;padding:9px 12px;background:color-mix(in srgb,var(--pc) var(--tint),var(--surface));border-bottom:2px solid var(--pc)}
@@ -231,13 +265,14 @@ body.compact .full-only{display:none}
   <div class="bar-inner">
     <div class="brand">
       <img class="brand-img" src="data:image/webp;base64,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" width="26" height="26" alt="">
-      ICU Handover <span class="ver">v8 Oct 2026a</span>
+      ICU Handover <span class="ver">v9 Oct 2026a</span>
     </div>
     <span class="age" id="age" hidden></span>
     <div class="actions">
       <button class="btn" id="b-home" type="button" hidden>⌂ Start page</button>
       <button class="btn" id="b-latest" type="button" hidden title="Load the newest export from the handover folder">⟳ Latest</button>
       <span class="unitname" id="unitname" hidden></span>
+      <button class="btn modebtn" id="b-mode" type="button" hidden></button>
       <button class="btn icon sizebtn" id="b-size" type="button"></button>
       <button class="btn icon themebtn" id="b-theme" type="button"></button>
       <button class="btn" id="b-compact" type="button" hidden title="Show only key issues, jobs, support and your notes">Compact</button>
@@ -299,8 +334,9 @@ body.compact .full-only{display:none}
   <div id="view" hidden>
     <div class="demo-flag" id="demoflag" hidden>Example data: these patients are made up.</div>
     <p class="summary" id="summary"></p>
-    <div class="pin" id="pin"><div class="mini-row"><div class="mini-age" id="miniage"></div><span class="mini-btns"><button class="btn icon sizebtn" id="b-size2" type="button"></button><button class="btn icon themebtn" id="b-theme2" type="button"></button></span></div><nav class="beds" id="beds" aria-label="Beds"></nav></div>
+    <div class="pin" id="pin"><div class="mini-row"><div class="mini-age" id="miniage"></div><span class="mini-btns"><button class="btn icon modebtn" id="b-mode2" type="button"></button><button class="btn icon sizebtn" id="b-size2" type="button"></button><button class="btn icon themebtn" id="b-theme2" type="button"></button></span></div><nav class="beds" id="beds" aria-label="Beds"></nav></div>
     <section id="cards"></section>
+    <section id="ho" hidden aria-live="polite"></section>
     <section class="outliers repother" id="repother" hidden>
       <h2>Other report notes</h2>
       <div id="repother-body"></div>
@@ -634,10 +670,8 @@ function tlHtml(list, show){
     (earlier.length ? `<details class="more"><summary>${earlier.length} earlier entr${earlier.length === 1 ? 'y' : 'ies'}</summary><ol class="tl">${earlier.map((e, i) => li(e, i, false)).join('')}</ol></details>` : '');
 }
 const SUP_LABEL = {A:'Airway / O₂', Mode:'Ventilation', C:'Circulation', B:'Breathing', R:'Renal', RRT:'Renal', Renal:'Renal', N:'Neuro', D:'Neuro', Feed:'Feed'};
-function cardHtml(p, i){
-  const f = flags(p);
-  const pill = f.dnr ? 'crit' : f.ceiling ? 'warn' : f.full ? 'ok' : '';
-  const alerts = [
+function alertsOf(p, f){
+  return [
     f.alg && [f.alg.c, f.alg.t],
     f.dnr && ['crit', 'Not for CPR'],
     f.ceiling && ['warn', 'Ceiling of care'],
@@ -647,6 +681,11 @@ function cardHtml(p, i){
     f.rrt && ['info', 'RRT'],
     p.trial && ['info', 'Trial: ' + p.trial]
   ].filter(Boolean);
+}
+function cardHtml(p, i){
+  const f = flags(p);
+  const pill = f.dnr ? 'crit' : f.ceiling ? 'warn' : f.full ? 'ok' : '';
+  const alerts = alertsOf(p, f);
   const note = notes[p.key];
   return `<article class="pt c${i % 6}" id="pt-${i}" data-key="${p.key}">
     <header class="head">
@@ -719,6 +758,7 @@ function render(){
   $('#beds').innerHTML = U.rightToLeft ? offHtml + mapHtml : mapHtml + offHtml;
     requestAnimationFrame(() => { const b = $('#beds'); b.scrollLeft = U.rightToLeft ? b.scrollWidth : 0; }); // start at bed 1
   $('#cards').innerHTML = patients.map(cardHtml).join('');
+  applyMode();
   renderGeneral();
   $('#repother').hidden = !reportOther.length;
   $('#repother-body').innerHTML = reportOther.map(t => `<div class="txt">${esc(t)}</div>`).join('');
@@ -827,11 +867,12 @@ document.addEventListener('input', e => {
     const n = loadNotes() || {};
     if (t.value.trim()) n[p.key] = {t: t.value, u: Date.now()}; else delete n[p.key];
     canStore = saveNotes(n); notes = n;
-    document.querySelector(`[data-state="${i}"]`).textContent = noteState(n[p.key]);
+    document.querySelectorAll(`[data-state="${i}"]`).forEach(el => el.textContent = noteState(n[p.key]));
+    document.querySelectorAll(`textarea[data-note="${i}"]`).forEach(el => { if (el !== t) el.value = t.value; });
     document.querySelector(`.bed[data-go="${i}"]`)?.classList.toggle('note', !!n[p.key]);
   }, 400);
 });
-$('#beds').addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) document.getElementById('pt-' + b.dataset.go).scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'}); });
+$('#beds').addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b && mode === 'handover'){ hoGoto(hoOrder().indexOf(+b.dataset.go)); return; } if (b) document.getElementById('pt-' + b.dataset.go).scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'}); });
 $('#b-compact').onclick = () => { const on = document.body.classList.toggle('compact'); $('#b-compact').classList.toggle('on', on); $('#b-compact').setAttribute('aria-pressed', on); };
 $('#b-home').onclick = () => { patients = []; isDemo = false; $('#newer').hidden = true; render(); scrollTo(0, 0); if (typeof showFolder === 'function') showFolder(false); };
 const pick = () => $('#file').click();
@@ -1146,6 +1187,130 @@ const cycleTheme = () => {
   applyTheme(t); toast(t === 'auto' ? 'Colours follow your device' : t === 'light' ? 'Always light' : 'Always dark', 1600);
 };
 document.querySelectorAll('.themebtn').forEach(b => b.onclick = cycleTheme);
+
+// ---------- handover mode: one patient per screen, in bed order ----------
+const store = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} };
+const recall = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+let mode = recall('icuho-mode') === 'handover' ? 'handover' : 'list';
+let room = recall('icuho-room') === '1';
+let hoIdx = 0, hoTab = 'now', hoKey = null;
+const hoOrder = () => patients.map((p, i) => i).sort((a, b) => ((bedNo(patients[a]) ?? 999) - (bedNo(patients[b]) ?? 999)) || a - b);
+const HO_TABS = [['now', 'Now'], ['history', 'History'], ['timeline', 'Timeline'], ['micro', 'Micro'], ['notes', 'My notes']];
+function hoHtml(i){
+  const p = patients[i], f = flags(p), alerts = alertsOf(p, f).filter(([, t]) => t !== 'Not for CPR' && t !== 'Ceiling of care');
+  const st = f.dnr ? 'crit' : f.ceiling ? 'warn' : f.full ? 'ok' : '';
+  const note = notes[p.key];
+  let pane = '';
+  if (hoTab === 'now') pane = `
+      <section><h3>Key issues</h3>${textOr(p.issues)}</section>
+      <section class="ho-jobs"><h3>Jobs</h3>${textOr(p.jobs, 'No jobs listed')}</section>
+      <section><h3>Support now</h3>${p.support.length ? `<dl class="kv">${p.support.map(s => `<dt>${esc(SUP_LABEL[s.k] || s.k)}</dt><dd>${esc(s.v)}</dd>`).join('')}</dl>` : '<div class="none">Nothing recorded</div>'}</section>`;
+  else if (hoTab === 'history') pane = `
+      <section><dl class="kv"><dt>Working Dx</dt><dd>${esc(p.dx) || '—'}</dd><dt>Admitted with</dt><dd>${esc(p.rfa) || '—'}</dd></dl></section>
+      <section><h3>PMH</h3>${textOr(p.pmh)}</section>
+      <section><h3>PSH</h3>${textOr(p.psh)}</section>
+      ${p.extra && p.extra.length ? `<section><h3>Other</h3>${p.extra.map(t => `<div class="txt">${esc(t)}</div>`).join('')}</section>` : ''}
+      <section class="sub">${[dobText(p.dobLine), esc(p.hosp.replace(/^#\s*/, '')), p.nhs ? 'NHS ' + esc(p.nhs) : ''].filter(Boolean).join(' · ')}${p.adm ? '<br>Admitted ' + esc(p.adm.replace(LOS_RE, '').replace(/(\d{1,2}:\d{2}):\d{2}/, '$1').trim()) : ''}${p.cons ? ' · Cons ' + esc(p.cons) : ''}</section>`;
+  else if (hoTab === 'timeline') pane = `<section><h3>Timeline (newest first)</h3>${tlHtml(p.timeline, 10)}</section>`;
+  else if (hoTab === 'micro') pane = `<section><h3>Micro (newest first)</h3>${tlHtml(p.micro, 10)}</section>`;
+  else pane = `<section class="notes"><h3><label for="ho-note-${i}">My notes</label></h3>
+      <textarea id="ho-note-${i}" data-note="${i}" placeholder="Personal reminders for this shift. Not clinical documentation.">${esc(note ? note.t : '')}</textarea>
+      <div class="state" data-state="${i}">${noteState(note)}</div></section>`;
+  return `<article class="ho c${i % 6}" data-i="${i}">
+    <header class="ho-head">
+      <div class="numcol"><span class="num">${esc(p.bed || 'Bed ?')}</span>${ageOf(p.dobLine) || sexOf(p.dobLine) ? `<span class="agesex">${ageOf(p.dobLine) ?? ''}${sexIcon(p.dobLine)}</span>` : ''}</div>
+      <div class="who">
+        <div class="name">${esc(p.name) || '<span class="none">No name</span>'}</div>
+        ${p.dx ? `<div class="ho-dx">${esc(p.dx)}</div>` : ''}
+        <div class="sub">${icuDay(p) != null ? `<b class="day">ICU day ${dayText(p)}</b>` : ''}${p.cons ? (icuDay(p) != null ? ' · ' : '') + 'Cons ' + esc(p.cons) : ''}</div>
+      </div>
+    </header>
+    <div class="ho-status ${st}">${p.escalation.length ? p.escalation.map(esc).join(' · ') : 'Escalation not recorded'}</div>
+    ${alerts.length ? `<div class="alerts">${alerts.map(([c, t]) => `<span class="al ${c}">${esc(t)}</span>`).join('')}</div>` : ''}
+    <nav class="ho-tabs" role="tablist" aria-label="Sections">${HO_TABS.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === hoTab}">${l}</button>`).join('')}</nav>
+    <div class="ho-pane" role="tabpanel">${pane}</div>
+  </article>`;
+}
+function renderHo(){
+  const order = hoOrder(); if (!order.length) return;
+  if (hoKey){ const k = order.findIndex(i => patients[i].key === hoKey); if (k >= 0) hoIdx = k; }
+  hoIdx = Math.max(0, Math.min(hoIdx, order.length - 1));
+  const i = order[hoIdx]; hoKey = patients[i].key;
+  $('#ho').innerHTML = hoHtml(i) + `
+    <div class="ho-nav">
+      <button class="btn" type="button" data-step="-1" ${hoIdx === 0 ? 'disabled' : ''}>‹ Prev</button>
+      <div class="ho-pos"><b>${hoIdx + 1} of ${order.length}</b><button class="btn small${room ? ' on-room' : ''}" type="button" id="b-room" aria-pressed="${room}" title="Large view for a shared screen in the handover room">${room ? 'Leave room display' : 'Room display'}</button></div>
+      <button class="btn" type="button" data-step="1" ${hoIdx === order.length - 1 ? 'disabled' : ''}>Next ›</button>
+    </div>`;
+  document.querySelectorAll('.bed.cur').forEach(b => b.classList.remove('cur'));
+  const chipEl = document.querySelector(`.bed[data-go="${i}"]`);
+  if (chipEl){ chipEl.classList.add('cur'); chipEl.scrollIntoView({block: 'nearest', inline: 'nearest'}); }
+}
+function hoGoto(k){
+  if (k < 0) return;
+  hoIdx = k; hoKey = null; hoTab = 'now'; renderHo();
+  hoScrollTop();
+}
+function hoScrollTop(){
+  const top = $('#ho').getBoundingClientRect().top + scrollY - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--barh')) || 0) - ($('#pin').offsetHeight || 0) - 6;
+  scrollTo({top: Math.max(0, top), behavior: 'auto'});
+}
+function applyMode(){
+  const ho = mode === 'handover' && patients.length > 0;
+  document.body.classList.toggle('ho-mode', ho);
+  document.body.classList.toggle('room', ho && room);
+  $('#ho').hidden = !ho;
+  $('#b-mode').hidden = !patients.length;
+  $('#b-mode').textContent = ho ? '☰ List view' : '⇆ Handover view';
+  const b2 = $('#b-mode2'); b2.textContent = ho ? '☰' : '⇆';
+  [$('#b-mode'), b2].forEach(b => { b.title = ho ? 'Back to the list of all patients' : 'Handover view: one patient per screen, swipe between them'; b.setAttribute('aria-label', b.title); });
+  if (ho) renderHo(); else document.querySelectorAll('.bed.cur').forEach(b => b.classList.remove('cur'));
+  setBarHeight();
+}
+document.querySelectorAll('.modebtn').forEach(b => b.onclick = () => {
+  if (mode === 'list'){
+    // start from the patient you were looking at in the list
+    const seen = [...document.querySelectorAll('.pt')].find(el => el.getBoundingClientRect().bottom > 160);
+    if (seen){ hoKey = null; hoIdx = Math.max(0, hoOrder().indexOf(+seen.id.slice(3))); }
+    mode = 'handover'; hoTab = 'now';
+  } else {
+    if (room) setRoom(false);
+    mode = 'list';
+  }
+  store('icuho-mode', mode === 'handover' ? 'handover' : null);
+  applyMode();
+  if (mode === 'list' && hoKey){ const i = patients.findIndex(p => p.key === hoKey); document.getElementById('pt-' + i)?.scrollIntoView({block: 'start'}); }
+  else requestAnimationFrame(hoScrollTop);
+});
+function setRoom(on){
+  room = on; store('icuho-room', on ? '1' : null);
+  if (on){ hoTab = hoTab === 'notes' ? 'now' : hoTab; document.documentElement.requestFullscreen?.().catch(() => {}); }
+  else if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  applyMode();
+}
+$('#ho').addEventListener('click', e => {
+  const tab = e.target.closest('[data-tab]'); if (tab){ hoTab = tab.dataset.tab; renderHo(); return; }
+  const step = e.target.closest('[data-step]'); if (step){ hoGoto(hoIdx + +step.dataset.step); return; }
+  if (e.target.closest('#b-room')) setRoom(!room);
+});
+// swipe left/right between patients (not while typing a note)
+let sx = null, sy = 0;
+$('#ho').addEventListener('touchstart', e => { if (e.target.closest('textarea') || e.touches.length > 1){ sx = null; return; } sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, {passive: true});
+$('#ho').addEventListener('touchend', e => {
+  if (sx == null) return; const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy; sx = null;
+  if (Math.abs(dx) > 60 && Math.abs(dx) > 1.6 * Math.abs(dy)) hoGoto(hoIdx + (dx < 0 ? 1 : -1));
+}, {passive: true});
+// keyboard and presentation clickers: arrows / Page Up / Page Down; Escape leaves room display
+document.addEventListener('keydown', e => {
+  if (mode !== 'handover' || !patients.length || e.target.closest('textarea, input, select') || e.altKey || e.ctrlKey || e.metaKey) return;
+  const n = hoOrder().length;
+  if (e.key === 'ArrowRight' || e.key === 'PageDown'){ e.preventDefault(); hoGoto(Math.min(n - 1, hoIdx + 1)); }
+  else if (e.key === 'ArrowLeft' || e.key === 'PageUp'){ e.preventDefault(); hoGoto(Math.max(0, hoIdx - 1)); }
+  else if (e.key === 'Home'){ e.preventDefault(); hoGoto(0); }
+  else if (e.key === 'End'){ e.preventDefault(); hoGoto(n - 1); }
+  else if (e.key === 'Escape' && room) setRoom(false);
+});
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && room && mode === 'handover') { /* stay in room layout; Esc or the button leaves it */ } });
 
 // ---------- text size: Normal → Large → Larger → Small, remembered on this device ----------
 const SIZES = ['m', 'l', 'xl', 's'];
